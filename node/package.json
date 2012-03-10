@@ -1,0 +1,7 @@
+{
+	"name":"server",
+	"version":"0.1.0",
+	"dependencies":{
+		"now":"0.7.5"
+	}
+}
