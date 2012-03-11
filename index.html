@@ -42,6 +42,14 @@ void main(void) {
 attribute vec3 aVertexPosition;
 attribute vec4 aVertexColor;
 
+uniform float time;
+uniform float minX;
+uniform float minY;
+uniform float maxX;
+uniform float maxY;
+uniform float minZ;
+uniform float maxZ;
+
 uniform mat4 uMVMatrix;
 uniform mat4 uPMatrix;
 
@@ -63,12 +71,12 @@ float convertZToG(float z)
     //then, we need to map this to an RGB value with the color
     //conversion formulas
 
-    s = 0.8; v = 0.8;
+    s = 0.9; v = 0.9;
 
     float dpz=2.0;
     float degreesPerZ = 360.0 / dpz;
 
-    float hueDegrees = z * degreesPerZ;
+    float hueDegrees = z * degreesPerZ + 90.0;
 
     //limit to 0->360
     hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
@@ -137,12 +145,12 @@ float convertZToB(float z)
     //then, we need to map this to an RGB value with the color
     //conversion formulas
 
-    s = 0.8; v = 0.8;
+    s = 0.9; v = 0.9;
 
     float dpz=2.0;
     float degreesPerZ = 360.0 / dpz;
 
-    float hueDegrees = z * degreesPerZ;
+    float hueDegrees = z * degreesPerZ + 90.0;
 
     //limit to 0->360
     hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
@@ -211,12 +219,12 @@ float convertZToR(float z)
     //then, we need to map this to an RGB value with the color
     //conversion formulas
 
-    s = 0.8; v = 0.8;
+    s = 0.9; v = 0.9;
 
     float dpz=2.0;
     float degreesPerZ = 360.0 / dpz;
 
-    float hueDegrees = z * degreesPerZ;
+    float hueDegrees = z * degreesPerZ + 90.0;
 
     //limit to 0->360
     hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
@@ -272,20 +280,26 @@ float convertZToR(float z)
 
 void main(void) {
     float x, y, z;
-    x = aVertexPosition[0];
-    y = aVertexPosition[1];
+    //the x and y go from -1 to 1 on the master grid, so
+    //rescale these to be from -minX to +maxX
+    x = ((aVertexPosition[0] + 1.0)/(2.0)) * (maxX - minX) + minX;
+    y = ((aVertexPosition[1] + 1.0)/(2.0)) * (maxY - minY) + minY;
     z = 0.0;
 
-    //z = pow(x,2.0) + pow(y,2.0);
-    z = 0.5 + (sin(x*x + y*x) - 0.5)/(1.0 + 0.1*(x * x + y * y));
+    z = pow(x,2.0) + pow(y,2.0);
+    z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time))));
+    //z = 0.3 * ((x * sin(sqrt(abs(x - (y + 9.0)))) - (y + 9.0) * sin(sqrt(abs(y + 0.5 * x + 9.0))));
 
     float r,g,b;
 
-    r = convertZToR(z);
-    g = convertZToG(z);
-    b = convertZToB(z);
+    //vec4 position = vec4(x,y,z,1.0);
+    float zScaled = ((z - minZ)/(maxZ - minZ)) * 2.0 + -1.0;
 
-    vec4 position = vec4(x,y,z,1.0);
+    r = convertZToR(zScaled);
+    g = convertZToG(zScaled);
+    b = convertZToB(zScaled);
+
+    vec4 position = vec4(aVertexPosition[0],aVertexPosition[1],zScaled,1.0);
 
     gl_Position = uPMatrix * uMVMatrix * position;
 
@@ -319,12 +333,12 @@ float convertZToG(float z)
     //then, we need to map this to an RGB value with the color
     //conversion formulas
 
-    s = 0.8; v = 0.8;
+    s = 0.9; v = 0.9;
 
     float dpz=2.0;
     float degreesPerZ = 360.0 / dpz;
 
-    float hueDegrees = z * degreesPerZ;
+    float hueDegrees = z * degreesPerZ + 90.0;
 
     //limit to 0->360
     hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
@@ -393,12 +407,12 @@ float convertZToB(float z)
     //then, we need to map this to an RGB value with the color
     //conversion formulas
 
-    s = 0.8; v = 0.8;
+    s = 0.9; v = 0.9;
 
     float dpz=2.0;
     float degreesPerZ = 360.0 / dpz;
 
-    float hueDegrees = z * degreesPerZ;
+    float hueDegrees = z * degreesPerZ + 90.0;
 
     //limit to 0->360
     hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
@@ -467,12 +481,12 @@ float convertZToR(float z)
     //then, we need to map this to an RGB value with the color
     //conversion formulas
 
-    s = 0.8; v = 0.8;
+    s = 0.9; v = 0.9;
 
     float dpz=2.0;
     float degreesPerZ = 360.0 / dpz;
 
-    float hueDegrees = z * degreesPerZ;
+    float hueDegrees = z * degreesPerZ + 90.0;
 
     //limit to 0->360
     hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
@@ -528,7 +542,7 @@ float convertZToR(float z)
 
 
 void main(void) {
-    float z = vPos[2];
+    float z = (vPos[2] + 1.0) * 2.0;
     float r,g,b;
 
     r = convertZToR(z);
@@ -543,57 +557,19 @@ void main(void) {
 </script>
 
 
-<script id="shader-fs" type="x-shader/x-fragment">
-    precision mediump float;
-
-    varying vec2 vTextureCoord;
-    varying vec3 vLightWeighting;
-    varying vec3 vNormal;
-
-    uniform sampler2D uSampler;
-
-    void main(void) {
-        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        float intensity = 1.05 - dot(vNormal,vec3(0,0,1));
-        vec3 atmosphere = vec3(1,1,1) * pow(intensity,3.0);
-        //gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a);
-        gl_FragColor = vec4(textureColor.rgb * vLightWeighting + atmosphere, textureColor.a);
-    }
-</script>
-
-<script id="shader-vs" type="x-shader/x-vertex">
-    attribute vec3 aVertexPosition;
-    attribute vec3 aVertexNormal;
-    attribute vec2 aTextureCoord;
-
-    uniform mat4 uMVMatrix;
-    uniform mat4 uPMatrix;
-    uniform mat3 uNMatrix;
-
-    uniform vec3 uAmbientColor;
-
-    uniform vec3 uLightingDirection;
-    uniform vec3 uDirectionalColor;
-
-    uniform bool uUseLighting;
-
-    varying vec2 vTextureCoord;
-    varying vec3 vLightWeighting;
-    varying vec3 vNormal;
-
-    void main(void) {
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-        vTextureCoord = aTextureCoord;
-
-            vec3 transformedNormal = uNMatrix * aVertexNormal;
-            vNormal = transformedNormal;
-            float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
-            vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;
-    }
-</script>
-
-
 <script type="text/javascript">
+
+//function globals
+//board bounds
+var sym = 3;
+
+var minX = -sym;
+var maxX = sym;
+var minY = -sym;
+var maxY = sym;
+
+var minZ = -5;
+var maxZ = 5;
 
 var gl;
 $j = jQuery.noConflict();
@@ -605,7 +581,6 @@ var arcBaseHeight = 0.1;
 
 var arcAlpha = 0.75;
 
-var bubbleTheme = 'all-blue';
 var white = [1,1,1,arcAlpha];
 var blue = [0,0,1,arcAlpha];
 var green = [0,1,0,arcAlpha];
@@ -615,6 +590,7 @@ var yellow = [1,1,0,arcAlpha];
 //globals
 var boxTimeout = null;
 var notifyTimeout = null;
+
 var globalColorTaken = {};
 var globalColorLookup = {};
 
@@ -646,6 +622,8 @@ var tweenTime = 1000;
 var tweenEasing = TWEEN.Easing.Cubic.EaseInOut;
 var ourTweenOn = false;
 var timeoutMinutes = 10;
+var timeOnLoad = new Date();
+var startTime = timeOnLoad.getTime();
 
 
 /*****************CLASSES*******************/
@@ -1107,9 +1085,9 @@ function onMouseWheel(event) {
     }
 
     zoomAmount += toZoom;
-    if(zoomAmount > -2.76)
+    if(zoomAmount > -0.76)
     {
-        zoomAmount = -2.76;
+        zoomAmount = -0.76;
     }
 }
 
@@ -1248,6 +1226,16 @@ function initShaders() {
     blendShaderProgram.mvMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uMVMatrix");
 
 
+    blendShaderProgram.timeUniform = gl.getUniformLocation(blendShaderProgram,"time");
+    blendShaderProgram.uniformMinX = gl.getUniformLocation(blendShaderProgram,"minX");
+    blendShaderProgram.uniformMaxX = gl.getUniformLocation(blendShaderProgram,"maxX");
+    blendShaderProgram.uniformMinY = gl.getUniformLocation(blendShaderProgram,"minY");
+    blendShaderProgram.uniformMaxY = gl.getUniformLocation(blendShaderProgram,"maxY");
+    blendShaderProgram.uniformMinZ = gl.getUniformLocation(blendShaderProgram,"minZ");
+    blendShaderProgram.uniformMaxZ = gl.getUniformLocation(blendShaderProgram,"maxZ");
+    
+
+
     //white shader
     gl.useProgram(whiteShaderProgram);
 
@@ -1263,14 +1251,7 @@ function initShaders() {
 function handleLoadedTexture(texture) {
     stopLoadingWithText();
 
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-    gl.generateMipmap(gl.TEXTURE_2D);
-
-    gl.bindTexture(gl.TEXTURE_2D, null);
+    //no more texture
 
     doEarthFlyin();
     tick();
@@ -1349,6 +1330,18 @@ function setMatrixUniforms() {
 
     gl.uniformMatrix4fv(whiteShaderProgram.pMatrixUniform, false, pMatrix);
     gl.uniformMatrix4fv(whiteShaderProgram.mvMatrixUniform, false, mvMatrix);
+
+    var now = new Date();
+    var deltaT = (now.getTime() - startTime) / 1000.0;
+
+    //all the things that change
+    gl.uniform1f(blendShaderProgram.timeUniform,deltaT);
+    gl.uniform1f(blendShaderProgram.uniformMinX,minX);
+    gl.uniform1f(blendShaderProgram.uniformMaxX,maxX);
+    gl.uniform1f(blendShaderProgram.uniformMinY,minY);
+    gl.uniform1f(blendShaderProgram.uniformMaxY,maxY);
+    gl.uniform1f(blendShaderProgram.uniformMinZ,minZ);
+    gl.uniform1f(blendShaderProgram.uniformMaxZ,maxZ);
 }
 
 
@@ -1474,26 +1467,27 @@ function initGridBuffers() {
         return {'x':x,'y':y};
     };
 
-    var numRows = 20.0;
-    var xMin = -1;
-    var xMax = 1;
-    var yMin = -1;
-    var yMax = 1;
+    var numRows = 70.0;
 
-    var xDivisor = (xMax - xMin) / numRows;
+    var xMinBoard = -1;
+    var xMaxBoard = 1;
+    var yMinBoard = -1;
+    var yMaxBoard = 1;
+
+    var xDivisor = (xMaxBoard - xMinBoard) / numRows;
     console.log(xDivisor);
-    var yDivisor = (yMax - yMin) / numRows;
+    var yDivisor = (yMaxBoard - yMinBoard) / numRows;
     //the x loop
     for(var i = 0; i < numRows; i++)
     {
         //the y loop
         for(var j = 0; j < numRows; j++)
         {
-            var xHere = i * xDivisor + xMin;
-            var yHere = j * yDivisor + yMin;
+            var xHere = i * xDivisor + xMinBoard;
+            var yHere = j * yDivisor + yMinBoard;
 
-            var xAcross = (i + 1) * xDivisor + xMin;
-            var yAcross = (j + 1) * yDivisor + yMin;
+            var xAcross = (i + 1) * xDivisor + xMinBoard;
+            var yAcross = (j + 1) * yDivisor + yMinBoard;
 
             var pHere = makePoint(xHere,yHere);
             var pAbove = makePoint(xHere,yAcross);
@@ -1668,6 +1662,7 @@ function drawSceneEither(forPicking) {
     setMatrixUniforms();
 
     //the 1500 is for when it gets crazay
+    /*
     for(var i = 0; i < masterArcList.length; i++)
     {
         var theArc = masterArcList[i];
@@ -1693,15 +1688,8 @@ function drawSceneEither(forPicking) {
             }
         }
     }
+    */
 
-    if(false)
-    {
-        gl.useProgram(whiteShaderProgram);
-        setMatrixUniforms();
-        arcUnderMouse.drawArcStripsWhite();
-        gl.useProgram(blendShaderProgram);
-        setMatrixUniforms();
-    }
 }
 
 function randomGps() {
