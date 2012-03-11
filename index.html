@@ -292,7 +292,7 @@ void main(void) {
 
     float r,g,b;
 
-    //vec4 position = vec4(x,y,z,1.0);
+    //scale the z so it fits within our window
     float zScaled = ((z - minZ)/(maxZ - minZ)) * 2.0 + -1.0;
 
     r = convertZToR(zScaled);
@@ -302,8 +302,7 @@ void main(void) {
     vec4 position = vec4(aVertexPosition[0],aVertexPosition[1],zScaled,1.0);
 
     gl_Position = uPMatrix * uMVMatrix * position;
-
-    //gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    //gl_Position = vec4(0,0,0,1);
 
     vColor = aVertexColor;
 
