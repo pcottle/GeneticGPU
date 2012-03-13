@@ -17,30 +17,8 @@
 <script type="text/javascript" src="Tween.js"></script>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 
-<script id="white-vs" type="x-shader/x-vertex">
-attribute vec3 aVertexPosition;
-
-uniform mat4 uMVMatrix;
-uniform mat4 uPMatrix;
-
-void main(void) {
-    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-}
-</script>
-
-<script id="white-fs" type="x-shader/x-fragment">
-
-precision mediump float;
-
-void main(void) {
-    gl_FragColor = vec4(1,1,1,1);
-}
-
-</script>
-
 <script id="shader-box-vs" type="x-shader/x-vertex">
 attribute vec3 aVertexPosition;
-attribute vec4 aVertexColor;
 
 uniform float time;
 uniform float minX;
@@ -310,8 +288,6 @@ void main(void) {
     gl_Position = uPMatrix * uMVMatrix * position;
     //gl_Position = uPMatrix * uMVMatrix * anotherPos;
 
-    vColor = aVertexColor;
-
     vPos = position;
     vColor = vec4(r,g,b,0.9);
 }
@@ -579,34 +555,13 @@ var maxZ = 5;
 var gl;
 $j = jQuery.noConflict();
 
-//arc dimensions and colors
-var arcBaseRadius = 2;
-var arcBaseThickness = 0.04;
-var arcBaseHeight = 0.1;
-
-var arcAlpha = 0.75;
-
-var white = [1,1,1,arcAlpha];
-var blue = [0,0,1,arcAlpha];
-var green = [0,1,0,arcAlpha];
-var red = [1,0,0,arcAlpha];
-var yellow = [1,1,0,arcAlpha];
-
 //globals
 var boxTimeout = null;
 var notifyTimeout = null;
 
-var globalColorTaken = {};
-var globalColorLookup = {};
-
-
 var shouldCircuit = false;
 var thePopup = null;
 var canvas = null;
-
-var arcUnderMouse = null;
-
-var masterArcList = [];
 
 //camera stuff
 var zoomAmount = -2;
@@ -633,360 +588,11 @@ var startTime = timeOnLoad.getTime();
 
 /*****************CLASSES*******************/
 
-function arcObj(gpsFrom,gpsTo,baseRadius,startColor,endColor,thickness,maxHeight) {
-    this.alternateForStrips = false;
-    this.gpsFrom = gpsFrom;
-    this.gpsTo = gpsTo;
-    this.baseRadius = baseRadius;
-    this.startColor = startColor;
-    this.endColor = endColor;
-    this.isDoneAnimating = false;
-    this.animateDirection = 1;
-    this.thickness = thickness;
-    this.divisions = 25;
-    this.maxHeight = maxHeight;
-    this.isHidden = false;
-
-    //animate stuff
-    this.animateStep = 0;
-    this.totalAnimateSteps = null;
-    this.animateVertexAmount = 0;
-
-    //find the vectors
-    var pos1 = getPosFromGps(gpsFrom);
-    var pos2 = getPosFromGps(gpsTo);
-
-    //our vectors are the normalized versions of these
-    this.startVec = vec3.create();
-    vec3.normalize(pos1,this.startVec);
-
-    this.endVec = vec3.create();
-    vec3.normalize(pos2,this.endVec);
-
-    this.crossVec = vec3.create();
-    vec3.cross(this.startVec,this.endVec,this.crossVec);
-    vec3.normalize(this.crossVec);
-    
-    //get the total amount of angle between
-    var dotProduct = vec3.dot(this.startVec,this.endVec);
-    var dotProductNormal = dotProduct / (vec3.length(this.startVec) * vec3.length(this.endVec));
-
-    this.totalTheta = Math.acos(dotProductNormal);
-    this.currentTheta = 0;
-
-    //make the buffers
-    this.myVertexBuffer = gl.createBuffer();
-    this.myNormalBuffer = gl.createBuffer();
-    this.myColorBuffer = gl.createBuffer();
-    this.myPickBuffer = gl.createBuffer();
-
-    this.myVertices = [];
-    this.myNormals = [];
-    this.myColors = [];
-    this.myPickColors = [];
-
-    //for the picking
-    this.uniqueColor = getUniqueColorObject();
-    this.cString = this.uniqueColor.cString;
-
-    globalColorLookup[this.uniqueColor.cString] = this;
-}
-
-arcObj.prototype.initAnimate = function () {
-    //ok so the initial animate thing is dependent on the number of divisions
-    this.totalAnimateSteps = this.divisions;
-    this.animateStep = 0;
-
-}
-
-arcObj.prototype.expandArc = function () {
-    this.isHidden = false;
-    this.isDoneAnimating = false;
-    this.animateDirection = 1;
-    this.animateStep = 0;
-}
-
-arcObj.prototype.retractArc = function () {
-    this.isDoneAnimating = false;
-    this.animateDirection = -4;
-}
-
-arcObj.prototype.hideArc = function () {
-    this.isDoneAnimating = true;
-    this.isHidden = true;
-    this.animateVertexAmount = 0;
-}
-
-arcObj.prototype.animateArc = function() {
-    //check in case we got called badly
-    if(this.isDoneAnimating)
-    {
-        return true;
-    }
-    //ok so i did a bit of refactoring here. animateArc doesn't do any of the complicated
-    //math to generate the points, it just decides which points to display.
-
-    //ok so basically we just have two triangles per division, so update that number
-    this.animateStep += this.animateDirection;
-    this.animateVertexAmount = this.animateStep * 2;
-
-    //if we are done
-    if(this.animateStep >= this.totalAnimateSteps || this.animateStep <= 0)
-    {
-        //set the right flag and return
-        this.isDoneAnimating = true;
-        if(this.animateStep == 0)
-        {
-            this.isHidden = true;
-        }
-        return true;
-    }
-    //still have more to go
-    return false;
-
-}
-
-arcObj.prototype.fixHeightAndWidth = function () {
-    //adjust the maxheight and width depending on how long this thing is
-
-    //basically, this is a function of theta. we scale width and height
-    //depending on how short or long the thing is
-
-    //ok so basically, we need to scale height up if its bigger and scale it down if
-    //its smaller
-
-    //get a number between 0 and 1 for how "long" the arc is
-    //the max theta between two vectors on a plane is just pi
-    var ourModifier = (this.totalTheta / (Math.PI));
-
-    //now scale between -1 and 1
-    var ourDelta = (ourModifier - 0.5) * 2;
-
-    //now scale height
-    this.maxHeight = this.maxHeight * 0.05 + this.maxHeight * ourModifier;
-
-    //fix our width too
-    this.thickness = this.thickness * 0.1 + this.thickness * ourModifier * 2;
-
-    //also our divisions
-    this.divisions = Math.round(200 * ourModifier) + 2;
-
-}
-
-arcObj.prototype.buildArc = function () {
-    //this method generates the points and does some house keeping
-    this.fixHeightAndWidth();
-    this.generateArcPoints();
-    //refresh buffers?
-    this.refreshBuffers();
-    this.initAnimate();
-}
-
-arcObj.prototype.generateArcPoints = function () {
-
-    //the idea is that we want to loop through theta with the correct number of
-    //divisions and generate those points
-    for(var genStep = 0; genStep < this.divisions; genStep++)
-    {
-        //stupid namespace things @_____@
-        this.currentTheta = genStep * this.totalTheta / this.divisions;
-
-        var progress = genStep / (this.divisions - 1);
-
-        //ok so we will just compute the vertices for the current theta, add them, and then
-
-        //first get the current radius
-        var heightScaleAmount = Math.sin(progress * Math.PI);
-        var thisRadius = this.baseRadius + heightScaleAmount * this.maxHeight;
-        
-        //first scale appropriately
-        var adjVec = vec3.create(this.startVec);
-        //these look way better with linear interp and sine-based height
-        vec3.scale(adjVec,(1-progress));
-
-        var oppVec = vec3.create(this.endVec);
-        vec3.scale(oppVec,progress);
-
-        //add these, normalize, scale by radius
-        var thisNormal = vec3.create();
-        vec3.add(adjVec,oppVec,thisNormal);
-        vec3.normalize(thisNormal);
-
-        var thisPoint = vec3.create();
-        vec3.scale(thisNormal,thisRadius,thisPoint);
-        
-        //also get the point that is "thickness" away in cross direction
-        var upperNormal = vec3.create(thisNormal);
-        var addVec = vec3.create();
-        vec3.scale(this.crossVec,this.thickness * heightScaleAmount,addVec);
-
-        //add the addVec to the normal to get the upper point
-        vec3.add(upperNormal,addVec,upperNormal);
-        vec3.normalize(upperNormal);
-
-        //get the point also
-        var upperPoint = vec3.create(upperNormal);
-        vec3.scale(upperPoint,thisRadius);
-        
-        //add them in the right order!
-        var firstVertex;
-        var secondVertex;
-        var firstNormal;
-        var secondNormal;
-
-        //goddamnit webgl give me quad strips and not this shit!!!!
-        if(!this.alternateForStrips)
-        {
-            firstVertex = thisPoint;
-            secondVertex = upperPoint;
-            firstNormal = thisNormal;
-            secondNormal = upperNormal;
-        }
-        else
-        {
-            firstVertex = upperPoint;
-            secondVertex = thisPoint;
-            firstNormal = upperNormal;
-            secondNormal = thisNormal;
-        }
-        //wtf why dont i have to do this?
-        //this.alternateForStrips = !this.alternateForStrips;
-        
-        //these are our points!! yay. add them to the vertices and normals
-        this.myVertices.push(firstVertex[0],firstVertex[1],firstVertex[2]);
-        this.myNormals.push(firstNormal[0],firstNormal[1],firstNormal[2]);
-
-        //add these points too
-        this.myVertices.push(secondVertex[0],secondVertex[1],secondVertex[2]);
-        this.myNormals.push(secondNormal[0],secondNormal[1],secondNormal[2]);
-
-        //Colors!!
-        var thisColor = [];
-        for(var i = 0; i < 4; i++)
-        {
-            thisColor[i] = this.startColor[i] * Math.cos(this.currentTheta) + 
-                            this.endColor[i] * Math.sin(this.currentTheta);
-            //try out linear?
-            thisColor[i] = this.startColor[i] * (1-progress) +
-                            this.endColor[i] * (progress);
-        }
-
-        //push the color twice
-        this.myColors.push(thisColor[0],thisColor[1],thisColor[2],thisColor[3]);
-        this.myColors.push(thisColor[0],thisColor[1],thisColor[2],thisColor[3]);
-
-        //push our unique color twice. dont forget about alpha!
-        this.myPickColors.push(this.uniqueColor.rFloat,this.uniqueColor.gFloat,this.uniqueColor.bFloat,1);
-        this.myPickColors.push(this.uniqueColor.rFloat,this.uniqueColor.gFloat,this.uniqueColor.bFloat,1);
-
-    }
-    //end of loop, we have filled up all of the arrays
-    //now we return and selectively draw to animate
-
-}
-
-
-arcObj.prototype.refreshBuffers = function () {
-    //buffer the data
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.myVertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.myVertices), gl.DYNAMIC_DRAW);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.myNormalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.myNormals), gl.DYNAMIC_DRAW);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.myColorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.myColors), gl.DYNAMIC_DRAW);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.myPickBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.myPickColors), gl.DYNAMIC_DRAW);
- 
-    //update the sizes
-    this.myVertexBuffer.itemSize = 3;
-    this.myVertexBuffer.numItems = this.myVertices.length / 3;
-
-    this.myColorBuffer.itemSize = 4;
-    this.myColorBuffer.numItems = this.myColors.length / 4;
-
-    this.myNormalBuffer.itemSize = 3;
-    this.myNormalBuffer.numItems = this.myNormals.length / 3;
-
-    this.myPickBuffer.itemSize = 4;
-    this.myPickBuffer.numItems = this.myPickColors.length / 4;
-
-}
-
-arcObj.prototype.drawArcStrips = function() {
-    if(this.isHidden)
-    {
-        return;
-    }
-    this.drawArcStripsEither(false);
-}
-
-arcObj.prototype.drawArcStripsForPicking = function() {
-    this.drawArcStripsEither(true);
-}
-
-arcObj.prototype.drawArcStripsWhite = function() {
-    //bind buffers, use different program
-
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.myVertexBuffer);
-    gl.vertexAttribPointer(whiteShaderProgram.vertexPositionAttribute,this.myVertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.animateVertexAmount);
-
-}
-
-arcObj.prototype.drawArcStripsEither = function(forPicking) {
-    //we just need to bind our buffers and then draw!
-
-    //need to bind this vertex buffer
-    gl.bindBuffer(gl.ARRAY_BUFFER,this.myVertexBuffer);
-    gl.vertexAttribPointer(blendShaderProgram.vertexPositionAttribute,this.myVertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    //need to bind this color buffer
-    if(!forPicking)
-    {
-        gl.bindBuffer(gl.ARRAY_BUFFER,this.myColorBuffer);
-        gl.vertexAttribPointer(blendShaderProgram.vertexColorAttribute, this.myColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    }
-    else
-    {
-        gl.bindBuffer(gl.ARRAY_BUFFER,this.myPickBuffer);
-        gl.vertexAttribPointer(blendShaderProgram.vertexColorAttribute, this.myPickBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    }
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.animateVertexAmount);
-}
-
 
 /***************End Classes!*****************************/
 
 
 /********** Geometry Functions *******/
-
-function getPosFromGps(gpsCoords)
-{
-    //gives you the position on the sphere (sans radius) from a gps location
-    var lat = gpsCoords.latitude;
-    var long = gpsCoords.longitude;
-
-    var latRad = lat * Math.PI / 180;
-    var longRad = long * Math.PI / 180;
-
-    var theta = Math.PI/2 - latRad;
-    var phi = Math.PI - longRad;
-
-    var x = Math.cos(phi) * Math.sin(theta);
-    var y = Math.cos(theta);
-    var z = Math.sin(phi) * Math.sin(theta);
-
-    var returnVec = vec3.create([x,y,z]);
-    return returnVec;
-}
-
-function myColorRand() {
-    return Math.round(Math.random() * 255);
-}
 
 function zeroPad(num,count)
 {
@@ -997,35 +603,8 @@ function zeroPad(num,count)
     return numZeropad;
 }
 
-function getRandomColor() {
-    var r = myColorRand(); var rS = zeroPad(r,3);
-    var g = myColorRand(); var gS = zeroPad(g,3);
-    var b = myColorRand(); var bS = zeroPad(b,3);
-    var rFloat = r / 255;
-    var gFloat = g / 255;
-    var bFloat = b / 255;
-    
-    var cString = rS + gS + bS;
 
-    return {'r':r,'g':g,'b':b,'cString':cString,
-            'rFloat':rFloat,'gFloat':gFloat,'bFloat':bFloat};
-}
-
-function getUniqueColorObject()
-{
-    //make a color object that doesnt exist, and go store it
-    var aColor = getRandomColor();
-    while(globalColorTaken[aColor.cString])
-    {
-        aColor = getRandomColor();
-    }
-    //ready for return
-    globalColorTaken[aColor.cString] = true;
-    return aColor;
-}
-
-
-/*******************Geometry Functions******************/
+/*******************End Geometry Functions******************/
 
 function initGL(canvas) {
     try {
@@ -1045,20 +624,6 @@ function initGL(canvas) {
             window.location = "http://petercottle.com/friendMapper2/browserFail.html";
         }
     }
-}
-
-function determineIfInPopup(eventFragment) {
-    if(!eventFragment)
-    {
-        return false;
-    }
-    //console.log("This level class " + eventFragment.className);
-    if(/bubble/.test(eventFragment.className))
-    {
-        return true;
-    }
-    //dig deeper
-    return determineIfInPopup(eventFragment.parentNode);
 }
 
 function onMouseWheel(event) {
@@ -1165,56 +730,21 @@ function getShader(gl, id) {
 }
 
 //global colors
-var ambientR = 0.5;
-var ambientG = 0.7;
-var ambientB = 1.2;
-
-var lDirectionX = -1.0;
-var lDirectionY = -1.0;
-var lDirectionZ = -1.0;
-
-var lightingDirection = [
-    lDirectionX,
-    lDirectionY,
-    lDirectionZ
-];
-
-var lColorR = 0.8;
-var lColorG = 0.8;
-var lColorB = 0.8;
 
 var blendShaderProgram;
-var whiteShaderProgram;
 
 function initShaders() {
-    //earth shader
-    var fragmentShader = getShader(gl, "shader-fs");
-    var vertexShader = getShader(gl, "shader-vs");
-
-    //atmosphere shader
-    var atmosphereVertexShader = getShader(gl,"shader-atmosphere-vs");
-    var atmosphereFragShader = getShader(gl,"shader-atmosphere-fs");
-
     //box shadeer
     var blendVertexShader = getShader(gl, "shader-box-vs");
     var blendFragShader = getShader(gl, "shader-box-fs");
-
-    //white shader
-    var whiteVertexShader = getShader(gl, "white-vs");
-    var whiteFragShader = getShader(gl, "white-fs");
-
-    whiteShaderProgram = gl.createProgram();
-    gl.attachShader(whiteShaderProgram, whiteVertexShader);
-    gl.attachShader(whiteShaderProgram, whiteFragShader);
-    gl.linkProgram(whiteShaderProgram);
 
     blendShaderProgram = gl.createProgram();
     gl.attachShader(blendShaderProgram, blendVertexShader);
     gl.attachShader(blendShaderProgram, blendFragShader);
     gl.linkProgram(blendShaderProgram);
 
-    if (!gl.getProgramParameter(whiteShaderProgram, gl.LINK_STATUS) || 
-            !gl.getProgramParameter(blendShaderProgram, gl.LINK_STATUS)){
+    if (!gl.getProgramParameter(blendShaderProgram, gl.LINK_STATUS))
+    {
         alert("Could not initialise shaders");
     }
 
@@ -1223,9 +753,6 @@ function initShaders() {
 
     blendShaderProgram.vertexPositionAttribute = gl.getAttribLocation(blendShaderProgram,"aVertexPosition");
     gl.enableVertexAttribArray(blendShaderProgram.vertexPositionAttribute);
-
-    blendShaderProgram.vertexColorAttribute = gl.getAttribLocation(blendShaderProgram,"aVertexColor");
-    gl.enableVertexAttribArray(blendShaderProgram.vertexColorAttribute);
 
     blendShaderProgram.pMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uPMatrix");
     blendShaderProgram.mvMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uMVMatrix");
@@ -1239,32 +766,11 @@ function initShaders() {
     blendShaderProgram.uniformMinZ = gl.getUniformLocation(blendShaderProgram,"minZ");
     blendShaderProgram.uniformMaxZ = gl.getUniformLocation(blendShaderProgram,"maxZ");
     
-
-
-    //white shader
-    gl.useProgram(whiteShaderProgram);
-
-    whiteShaderProgram.vertexPositionAttribute = gl.getAttribLocation(whiteShaderProgram,"aVertexPosition");
-    gl.enableVertexAttribArray(whiteShaderProgram.vertexPositionAttribute);
-
-    whiteShaderProgram.pMatrixUniform = gl.getUniformLocation(whiteShaderProgram,"uPMatrix");
-    whiteShaderProgram.mvMatrixUniform = gl.getUniformLocation(whiteShaderProgram,"uMVMatrix");
-
 }
 
-
-function handleLoadedTexture(texture) {
-    stopLoadingWithText();
-
-    //no more texture
-
-    doEarthFlyin();
-    tick();
-}
 
 
 var earthTexture;
-
 var otherFramebuffer;
 var otherTexture;
 
@@ -1275,40 +781,15 @@ function initOtherFrameBuffer() {
     otherFramebuffer.width = $j(window).width();
     otherFramebuffer.height = $j(window).height();
 
-    //make texture
-    otherTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, otherTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-    gl.generateMipmap(gl.TEXTURE_2D);
-
-    //set it to rgba
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, otherFramebuffer.width, otherFramebuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-
     //something with a render buffer?
     var renderbuffer = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER,renderbuffer);
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, otherFramebuffer.width, otherFramebuffer.height);
 
-    //for texture? set attached depth buffer also?
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, otherTexture, 0);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderbuffer);
-
     //reset back to default
     gl.bindTexture(gl.TEXTURE_2D,null);
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-}
-
-function initTexture() {
-    earthTexture = gl.createTexture();
-    earthTexture.image = new Image();
-    earthTexture.image.onload = function () {
-        handleLoadedTexture(earthTexture)
-    }
-
-    earthTexture.image.src = "world.jpg";
-    startLoadingWithText("Initializing WebGL...");
 }
 
 var mvMatrix = mat4.create();
@@ -1332,9 +813,6 @@ function setMatrixUniforms() {
 
     gl.uniformMatrix4fv(blendShaderProgram.pMatrixUniform, false, pMatrix);
     gl.uniformMatrix4fv(blendShaderProgram.mvMatrixUniform, false, mvMatrix);
-
-    gl.uniformMatrix4fv(whiteShaderProgram.pMatrixUniform, false, pMatrix);
-    gl.uniformMatrix4fv(whiteShaderProgram.mvMatrixUniform, false, mvMatrix);
 
     var now = new Date();
     var deltaT = (now.getTime() - startTime) / 1000.0;
@@ -1429,13 +907,7 @@ function handleMouseMove(event) {
 
 
 
-var earthVertexPositionBuffer;
-var earthVertexNormalBuffer;
-var earthVertexTextureCoordBuffer;
-var earthVertexIndexBuffer;
-
 var gridVertexPositionBuffer;
-var gridVertexColorBuffer;
 
 var vertices;
 var colors;
@@ -1444,30 +916,15 @@ function initGridBuffers() {
 
     //initialize the grid vertices
     var gridVertexPositions = [];
-    var gridVertexColors = [];
 
     var addPointsToBuffer = function() {
         for(var temp = 0; temp < arguments.length; temp++)
         {
             point = arguments[temp];
             gridVertexPositions.push(point.x, point.y, 0);
-            var colors = [];
-            if(temp == 0)
-            {
-                colors = [1, 0, 0, 1];
-            }
-            else if(temp == 1)
-            {
-                colors = [0, 1, 0, 1];
-            }
-            else
-            {
-                colors = [0, 0, 1, 1];
-            }
-
-            gridVertexColors = gridVertexColors.concat(colors);
         }
     };
+
     var makePoint = function(x,y) {
         return {'x':x,'y':y};
     };
@@ -1505,19 +962,12 @@ function initGridBuffers() {
     }
 
     //gridVertexPositions = [1,1,0,-1,-1,0,-1,1,0];
-    //gridVertexColors = [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1];
 
     gridVertexPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gridVertexPositions), gl.STATIC_DRAW);
     gridVertexPositionBuffer.itemSize = 3;
     gridVertexPositionBuffer.numItems = gridVertexPositions.length / 3;
-
-    gridVertexColorBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexColorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gridVertexColors), gl.STATIC_DRAW);
-    gridVertexColorBuffer.itemSize = 4;
-    gridVertexColorBuffer.numItems = gridVertexColors.length / 4;
 
 }
 
@@ -1528,7 +978,6 @@ function startLoadingWithText(theText) {
 
 function stopLoadingWithText() {
     stopLoading();
-
     topNotifyClear();
 }
 
@@ -1587,7 +1036,9 @@ function mouseClickPick(event) {
 
 }
 
+/*
 function getArcAtMousePos(x,y) {
+    ***********this is old but i want to reference this code later!!!***
     //flip y
     y = gl.viewportHeight - y;
 
@@ -1620,30 +1071,7 @@ function getArcAtMousePos(x,y) {
     }
     return null;
 }
-
-function arcClick(anArc)
-{
-    if(anArc.myConnection)
-    {
-        //going there
-        fbClickOnArc(anArc);
-    }
-    else
-    {
-        tweenToGps(anArc.gpsFrom.latitude,anArc.gpsFrom.longitude);
-        anArc.retractArc();
-        var showString = "This location at " + anArc.gpsFrom.latitude + " and " + anArc.gpsFrom.longitude;
-    }
-}
-
-function fbClickOnArc(anArc) {
-    //all the stuff for when you click on an arc that has a facebook connection
-    var theGps = anArc.myConnection.toPlace.ourGps;
-    tweenToGps(theGps.latitude,theGps.longitude);
-
-    //go ahead and build the display string
-    var innerHtml = buildHtmlForBubble(anArc.myConnection);
-}
+*/
 
 function drawSceneIntoOtherBuffer() {
     drawSceneEither(true);
@@ -1663,74 +1091,6 @@ function drawSceneEither(forPicking) {
     //here, we draw the grid
     drawGrid();
 
-    gl.useProgram(blendShaderProgram);
-    setMatrixUniforms();
-
-    //the 1500 is for when it gets crazay
-    /*
-    for(var i = 0; i < masterArcList.length; i++)
-    {
-        var theArc = masterArcList[i];
-        theArc.animateArc();
-        if(theArc == arcUnderMouse && !forPicking)
-        {
-            gl.useProgram(whiteShaderProgram);
-            setMatrixUniforms();
-            theArc.drawArcStripsWhite();
-            gl.useProgram(blendShaderProgram);
-            setMatrixUniforms();
-        }
-        else
-        {
-            //draw the arc
-            if(forPicking)
-            {
-                theArc.drawArcStripsForPicking();
-            }
-            else
-            {
-                theArc.drawArcStrips();
-            }
-        }
-    }
-    */
-
-}
-
-function randomGps() {
-    var lat = Math.random() * 180 + -90;
-    var long = Math.random() * 360 - 180;
-
-    return {'latitude':lat,'longitude':long};
-
-}
-
-function rubberBandBall() {
-    for(var i = 0; i < 50; i++) { generateRandomArc(); }
-}
-
-function generateRandomArc() {
-    var fromGps = randomGps();
-    var toGps = randomGps();
-
-    var thisArc = new arcObj(fromGps,toGps,1,[0,0,1,arcAlpha],[1,1,1,arcAlpha],0.04,0.1);
-    thisArc.buildArc();
-
-    masterArcList.push(thisArc);
-}
-
-function expandArcsOfList(theList) {
-    for(var i = 0; i < theList.length; i++)
-    {
-        theList[i].expandArc();
-    }
-}
-
-function retractArcsOfList(theList) {
-    for(var i = 0; i < theList.length; i++)
-    {
-        theList[i].retractArc();
-    }
 }
 
 function cameraPerspectiveClear() {
@@ -1793,30 +1153,9 @@ function drawGrid() {
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
     gl.vertexAttribPointer(blendShaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexColorBuffer);
-    gl.vertexAttribPointer(blendShaderProgram.vertexColorAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
     gl.drawArrays(gl.TRIANGLES, 0, gridVertexPositionBuffer.numItems);
 }
 
-
-//slowly rotate
-function slowRotate()
-{
-    if(rotateOn)
-    {
-        globalYrotate += 0.1;
-    }
-    return;
-}
-
-function convertGpsToRotVariables(lat,long) {
-    //well globalYrotate is just 90 + that long
-    var yRotate = 90 + -long;
-    var xRotate = lat;
-
-    return {'xRotate':xRotate,'yRotate':yRotate};
-}
 
 function tweenUpdate() {
     globalXrotate = rotVariablesForTween.x;
@@ -1827,53 +1166,20 @@ function tweenDone() {
     ourTweenOn = false;
 }
 
-function tweenToGps(lat,long) {
-    var rotCorrespondingToGps = convertGpsToRotVariables(lat,long);
-
-    //we need to avoid the 360 spin thing
-    var ySpin = rotCorrespondingToGps.yRotate;
-    var ySpinDistance = ySpin - globalYrotate;
-
-    if(ySpinDistance > 180)
-    {
-        rotCorrespondingToGps.yRotate -= 360;
-    }
-    else if (ySpinDistance < -180)
-    {
-        globalYrotate -= 360;
-    }
-
-    //refresh our current rotvaribales
-    rotVariablesForTween = {'x':globalXrotate,'y':globalYrotate};
-
-    var x = rotCorrespondingToGps.xRotate;
-    var y = rotCorrespondingToGps.yRotate;
-
-    if(ourTween)
-    {
-        ourTween.stop();
-    }
-
-    ourTween = new TWEEN.Tween(rotVariablesForTween).to({x:x,y:y},tweenTime).onUpdate(tweenUpdate).onComplete(tweenDone);
-    ourTween.easing(tweenEasing);
-    ourTweenOn = true;
-    ourTween.start();
-
-}
-
 function tick() {
     requestAnimFrame(tick);
     drawScene();
-    slowRotate();
 }
 
 
 function webGLStart() {
+    startLoadingWithText("Initializing WebGL...");
+   
     canvas = document.getElementById("earth-canvas");
     initGL(canvas);
     initShaders();
     initGridBuffers();
-    initTexture();
+
     initOtherFrameBuffer();
 
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -1885,6 +1191,10 @@ function webGLStart() {
     document.onmouseup = handleMouseUp;
     document.onmousemove = handleMouseMove;
 
+    //do the finish down here
+    stopLoadingWithText();
+    doEarthFlyin();
+    tick();
 }
 
 function doEarthFlyin() {
@@ -1904,7 +1214,7 @@ function doEarthFlyin() {
 
 function scaleTweenComplete()
 {
-    rubberBandBall();
+    //code here possibly
 }
 
 function scaleTweenUpdate() {
@@ -1919,11 +1229,8 @@ $j(document).ready(function(){
     //initial resize
     resizeWindow();
 
-    //var container = document.getElementById('earth-canvas');
     $j(document).bind('mousewheel',onMouseWheel);
     $j(document).bind('DOMMouseScroll',onMouseWheel);
-    
-
 });
 
 </script>
