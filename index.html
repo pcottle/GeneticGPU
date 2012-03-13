@@ -280,6 +280,11 @@ float convertZToR(float z)
 
 void main(void) {
     float x, y, z;
+    float xOriginal, yOriginal;
+
+    xOriginal = aVertexPosition[0];
+    yOriginal = aVertexPosition[1];
+
     //the x and y go from -1 to 1 on the master grid, so
     //rescale these to be from -minX to +maxX
     x = ((aVertexPosition[0] + 1.0)/(2.0)) * (maxX - minX) + minX;
@@ -300,9 +305,10 @@ void main(void) {
     b = convertZToB(zScaled);
 
     vec4 position = vec4(aVertexPosition[0],aVertexPosition[1],zScaled,1.0);
+    //vec4 anotherPos = vec4(xOriginal / 100.0,0.0,zScaled,1.0);
 
     gl_Position = uPMatrix * uMVMatrix * position;
-    //gl_Position = vec4(0,0,0,1);
+    //gl_Position = uPMatrix * uMVMatrix * anotherPos;
 
     vColor = aVertexColor;
 
