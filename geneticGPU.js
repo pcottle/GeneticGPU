@@ -1,5 +1,4 @@
 
-//function globals
 //board bounds
 var sym = 3;
 
@@ -36,8 +35,61 @@ var timeoutMinutes = 10;
 var timeOnLoad = new Date();
 var startTime = timeOnLoad.getTime();
 
+var blendShaderObj = null;
+
 
 /*****************CLASSES*******************/
+var myShader = function(vShaderId,fShaderId,uniformAttributes) {
+    this.vShaderId = vShaderId;
+    this.fShaderId = fShaderId;
+
+    this.uniformAttributes = uniformAttributes;
+    this.shaderProgram = null;
+
+    this.buildShader();
+    this.buildAttributes();
+};
+
+myShader.prototype.buildShader = function() {
+    var vShader = getShader(gl,this.vShaderId);
+    var fShader = getShader(gl,this.fShaderId);
+
+    this.shaderProgram = gl.createProgram();
+    gl.attachShader(this.shaderProgram,vShader);
+    gl.attachShader(this.shaderProgram,fShader);
+    gl.linkProgram(this.shaderProgram);
+
+    var linkStatus = gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS);
+    if(linkStatus != true)
+    {
+        console.warn("could not init shader",this.vShaderId);
+    }
+}
+
+myShader.prototype.buildAttributes = function() {
+
+    //our arcs
+    gl.useProgram(this.shaderProgram);
+    this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexPosition");
+    gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
+
+    //do all the uniforms
+    for(key in this.uniformAttributes)
+    {
+        var varName = this.uniformAttributes[key].variableName;
+        var varLocation = varName + "location";
+        console.log("adding this",varName,"to location",varLocation);
+
+        this.shaderProgram[varLocation] = gl.getUniformLocation(this.shaderProgram,varName);
+    }
+};
+
+myShader.prototype.switchToShader = function() {
+    gl.useProgram(this.shaderProgram);
+
+};
+
+
 
 
 /***************End Classes!*****************************/
@@ -55,6 +107,7 @@ var startTime = timeOnLoad.getTime();
 var blendShaderProgram;
 
 function initShaders() {
+
     //box shadeer
     var blendVertexShader = getShader(gl, "shader-box-vs");
     var blendFragShader = getShader(gl, "shader-box-fs");
@@ -66,7 +119,7 @@ function initShaders() {
 
     if (!gl.getProgramParameter(blendShaderProgram, gl.LINK_STATUS))
     {
-        alert("Could not initialise shaders");
+        alert("Could not initialise shaders Here!");
     }
 
     //our arcs
@@ -78,6 +131,17 @@ function initShaders() {
     blendShaderProgram.pMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uPMatrix");
     blendShaderProgram.mvMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uMVMatrix");
 
+    var attributes = [
+        {variableName:'time',type:'f',val:0},
+        {variableName:'minX',type:'f',val:0},
+        {variableName:'maxX',type:'f',val:0},
+        {variableName:'maxY',type:'f',val:0},
+        {variableName:'minY',type:'f',val:0},
+        {variableName:'minZ',type:'f',val:0},
+        {variableName:'maxZ',type:'f',val:0}
+        ];
+
+    blendShaderObj = new myShader("shader-box-vs","shader-box-fs",attributes);
 
     blendShaderProgram.timeUniform = gl.getUniformLocation(blendShaderProgram,"time");
     blendShaderProgram.uniformMinX = gl.getUniformLocation(blendShaderProgram,"minX");
