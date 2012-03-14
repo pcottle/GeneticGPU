@@ -69,14 +69,15 @@ myShader.prototype.buildShader = function() {
 myShader.prototype.buildAttributes = function() {
 
     //our arcs
-    gl.useProgram(this.shaderProgram);
+    this.switchToShader();
+
     this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexPosition");
     gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
 
     //do all the uniforms
     for(key in this.uniformAttributes)
     {
-        var varName = this.uniformAttributes[key].variableName;
+        var varName = key;
         var varLocation = varName + "location";
         console.log("adding this",varName,"to location",varLocation);
 
@@ -86,6 +87,32 @@ myShader.prototype.buildAttributes = function() {
 
 myShader.prototype.switchToShader = function() {
     gl.useProgram(this.shaderProgram);
+};
+
+myShader.prototype.updateUniforms = function(attributes) {
+    for(key in attributes)
+    {
+        var varName = key;
+        //check for existence when we built
+        if(!this.uniformAttributes[varName])
+        {
+            console.warn("This attribute",varName,"was not initialized when we built the shader!!");
+            continue;
+        }
+        
+        var val = attributes[key].val;
+        var type = attributes[key].type;
+        var varLocation = varName + "location";
+        if(type == 'f')
+        {
+            gl.uniform1f(this.shaderProgram.varLocation,val);
+        }
+        else
+        {
+            console.warn("unsupported type",f);
+        }
+
+    }
 
 };
 
@@ -131,15 +158,15 @@ function initShaders() {
     blendShaderProgram.pMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uPMatrix");
     blendShaderProgram.mvMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uMVMatrix");
 
-    var attributes = [
-        {variableName:'time',type:'f',val:0},
-        {variableName:'minX',type:'f',val:0},
-        {variableName:'maxX',type:'f',val:0},
-        {variableName:'maxY',type:'f',val:0},
-        {variableName:'minY',type:'f',val:0},
-        {variableName:'minZ',type:'f',val:0},
-        {variableName:'maxZ',type:'f',val:0}
-        ];
+    var attributes = {
+        'time':{type:'f',val:0},
+        'minX':{type:'f',val:0},
+        'maxX':{type:'f',val:0},
+        'maxY':{type:'f',val:0},
+        'minY':{type:'f',val:0},
+        'minZ':{type:'f',val:0},
+        'maxZ':{type:'f',val:0},
+    };
 
     blendShaderObj = new myShader("shader-box-vs","shader-box-fs",attributes);
 
@@ -150,7 +177,6 @@ function initShaders() {
     blendShaderProgram.uniformMaxY = gl.getUniformLocation(blendShaderProgram,"maxY");
     blendShaderProgram.uniformMinZ = gl.getUniformLocation(blendShaderProgram,"minZ");
     blendShaderProgram.uniformMaxZ = gl.getUniformLocation(blendShaderProgram,"maxZ");
-    
 }
 
 
