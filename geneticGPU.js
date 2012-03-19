@@ -259,26 +259,6 @@ function setObjUniforms() {
     blendShaderObj.updateAttributes(attributes);
 }
 
-
-function setMatrixUniforms() {
-
-    var now = new Date();
-    var deltaT = (now.getTime() - startTime) / 1000.0;
-
-    gl.uniformMatrix4fv(blendShaderProgram.pMatrixUniform, false, pMatrix);
-    gl.uniformMatrix4fv(blendShaderProgram.mvMatrixUniform, false, mvMatrix);
-
-    //all the things that change
-    gl.uniform1f(blendShaderProgram.timeUniform,deltaT);
-    gl.uniform1f(blendShaderProgram.uniformMinX,minX);
-    gl.uniform1f(blendShaderProgram.uniformMaxX,maxX);
-    gl.uniform1f(blendShaderProgram.uniformMinY,minY);
-    gl.uniform1f(blendShaderProgram.uniformMaxY,maxY);
-    gl.uniform1f(blendShaderProgram.uniformMinZ,minZ);
-    gl.uniform1f(blendShaderProgram.uniformMaxZ,maxZ);
-}
-
-
 function degToRad(degrees) {
     return degrees * Math.PI / 180;
 }
