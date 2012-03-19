@@ -623,9 +623,6 @@ function resizeWindow()
 
     mat4.perspective(45,gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 
-    setMatrixUniforms();
-
-
     $j('.loadingGif').css('left',String(wWidth/2 - 220*0.5) + 'px');
     $j('.loadingGif').css('top',String(wHeight / 2 - 19*0.5) + 'px');
     //fix loading gif
