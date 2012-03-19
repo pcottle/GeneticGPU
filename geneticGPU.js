@@ -7,8 +7,8 @@ var maxX = sym;
 var minY = -sym;
 var maxY = sym;
 
-var minZ = -5;
-var maxZ = 5;
+var minZ = -3;
+var maxZ = 3;
 
 //divisors
 var numRows = 70;
@@ -20,13 +20,13 @@ var gl;
 var zoomAmount = -2;
 var currentZoomLevel = -6;
 
-var scaleAmount = 1;
+var scaleAmount = 0.04;
 var ourScaleTween = null;
 var scaleVariablesForTween = null;
 
 var globalYrotate = 0;
-var globalXrotate = -45;
-var angleLimit = 85;
+var globalXrotate = -90;
+var angleLimit = 90;
 var rotateOn = false;
 
 var rotVariablesForTween = {'x':globalXrotate,'y':globalYrotate};
@@ -367,15 +367,7 @@ function getArcAtMousePos(x,y) {
 }
 */
 
-function drawSceneIntoOtherBuffer() {
-    drawSceneEither(true);
-}
-
 function drawScene() {
-    drawSceneEither(false);
-}
-
-function drawSceneEither(forPicking) {
 
     cameraPerspectiveClear();
     translateAndRotate();
@@ -398,7 +390,9 @@ function cameraPerspectiveClear() {
     //we set our clearColor to be 0 0 0 0, so its essentially transparent.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+    //mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+    //mat4.ortho(-100,-100,gl.viewportWidth,gl.viewportHeight,0.1,100,pMatrix);
+    mat4.ortho(-0.0519,0.0519,-0.0414,0.0414,0.1,100.0,pMatrix);
 }
 
 
@@ -481,7 +475,7 @@ function webGLStart() {
 }
 
 function doEarthFlyin() {
-    scaleAmount = 0.01;
+    scaleAmount = 0.0001;
     if(ourScaleTween)
     {
         ourScaleTween.stop();
@@ -489,7 +483,7 @@ function doEarthFlyin() {
 
     scaleVariablesForTween = {'scale':scaleAmount};
 
-    ourScaleTween = new TWEEN.Tween(scaleVariablesForTween).to({'scale':1},tweenTime*1.5).onUpdate(scaleTweenUpdate);
+    ourScaleTween = new TWEEN.Tween(scaleVariablesForTween).to({'scale':0.04},tweenTime*1.5).onUpdate(scaleTweenUpdate);
     setTimeout('scaleTweenComplete()',tweenTime*0.5);
     ourScaleTween.easing(TWEEN.Easing.Quartic.EaseInOut);
     ourScaleTween.start();
@@ -503,3 +497,39 @@ function scaleTweenComplete()
 function scaleTweenUpdate() {
     scaleAmount = scaleVariablesForTween.scale;
 }
+
+function getShader(gl, id) {
+    var shaderScript = document.getElementById(id);
+    if (!shaderScript) {
+        return null;
+    }
+
+    var str = "";
+    var k = shaderScript.firstChild;
+    while (k) {
+        if (k.nodeType == 3) {
+            str += k.textContent;
+        }
+        k = k.nextSibling;
+    }
+
+    var shader;
+    if (shaderScript.type == "x-shader/x-fragment") {
+        shader = gl.createShader(gl.FRAGMENT_SHADER);
+    } else if (shaderScript.type == "x-shader/x-vertex") {
+        shader = gl.createShader(gl.VERTEX_SHADER);
+    } else {
+        return null;
+    }
+
+    gl.shaderSource(shader, str);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        alert(gl.getShaderInfoLog(shader));
+        return null;
+    }
+
+    return shader;
+}
+

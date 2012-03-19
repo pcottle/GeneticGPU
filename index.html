@@ -34,6 +34,8 @@ uniform mat4 pMatrix;
 
 varying vec4 vColor;
 varying vec4 vPos;
+varying float vminZ;
+varying float vmaxZ;
 
 float convertZToG(float z)
 {
@@ -52,8 +54,8 @@ float convertZToG(float z)
 
     s = 0.9; v = 0.9;
 
-    float dpz=2.0;
-    float degreesPerZ = 360.0 / dpz;
+    float dpz= maxZ - minZ;
+    float degreesPerZ = 630.0 / dpz;
 
     float hueDegrees = z * degreesPerZ + 90.0;
 
@@ -126,8 +128,8 @@ float convertZToB(float z)
 
     s = 0.9; v = 0.9;
 
-    float dpz=2.0;
-    float degreesPerZ = 360.0 / dpz;
+    float dpz= maxZ - minZ;
+    float degreesPerZ = 630.0 / dpz;
 
     float hueDegrees = z * degreesPerZ + 90.0;
 
@@ -200,8 +202,8 @@ float convertZToR(float z)
 
     s = 0.9; v = 0.9;
 
-    float dpz=2.0;
-    float degreesPerZ = 360.0 / dpz;
+    float dpz= maxZ - minZ;
+    float degreesPerZ = 630.0 / dpz;
 
     float hueDegrees = z * degreesPerZ + 90.0;
 
@@ -273,6 +275,7 @@ void main(void) {
     z = pow(x,2.0) + pow(y,2.0);
     z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time))));
     //z = 0.3 * ((x * sin(sqrt(abs(x - (y + 9.0)))) - (y + 9.0) * sin(sqrt(abs(y + 0.5 * x + 9.0))));
+    //z = (pow(x,2.0)/pow(max(maxX,abs(minX)),2.0))*(maxZ-minZ)*0.5 + (pow(y,2.0)/pow(max(maxY,abs(minY)),2.0))*(maxZ-minZ)*0.5 + minZ;
 
     float r,g,b;
 
@@ -291,6 +294,8 @@ void main(void) {
 
     vPos = position;
     vColor = vec4(r,g,b,0.9);
+    vminZ = minZ;
+    vmaxZ = maxZ;
 }
 </script>
 
@@ -299,6 +304,8 @@ precision mediump float;
 
 varying vec4 vColor;
 varying vec4 vPos;
+varying float vminZ;
+varying float vmaxZ;
 
 float convertZToG(float z)
 {
@@ -317,8 +324,8 @@ float convertZToG(float z)
 
     s = 0.9; v = 0.9;
 
-    float dpz=2.0;
-    float degreesPerZ = 360.0 / dpz;
+    float dpz= vmaxZ - vminZ;
+    float degreesPerZ = 630.0 / dpz;
 
     float hueDegrees = z * degreesPerZ + 90.0;
 
@@ -391,8 +398,8 @@ float convertZToB(float z)
 
     s = 0.9; v = 0.9;
 
-    float dpz=2.0;
-    float degreesPerZ = 360.0 / dpz;
+    float dpz= vmaxZ - vminZ;
+    float degreesPerZ = 630.0 / dpz;
 
     float hueDegrees = z * degreesPerZ + 90.0;
 
@@ -465,8 +472,8 @@ float convertZToR(float z)
 
     s = 0.9; v = 0.9;
 
-    float dpz=2.0;
-    float degreesPerZ = 360.0 / dpz;
+    float dpz= vmaxZ - vminZ;
+    float degreesPerZ = 630.0 / dpz;
 
     float hueDegrees = z * degreesPerZ + 90.0;
 
@@ -593,10 +600,12 @@ function onMouseWheel(event) {
         toZoom = -1 * event.originalEvent.detail * 0.06;
     }
 
-    zoomAmount += toZoom;
-    if(zoomAmount > -0.76)
+    //zoomAmount += toZoom;
+    scaleAmount += toZoom / 100;
+
+    if(scaleAmount < 0.0001)
     {
-        zoomAmount = -0.76;
+        scaleAmount = 0.0001;
     }
 }
 
@@ -621,50 +630,13 @@ function resizeWindow()
     gl.viewportHeight = vHeight; 
     gl.viewport(0,0,vWidth,vHeight);
 
-    mat4.perspective(45,gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+    //mat4.perspective(45,gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+    mat4.ortho(-0.0519,0.0519,-0.0414,0.0414,0.1,100.0,pMatrix);
 
     $j('.loadingGif').css('left',String(wWidth/2 - 220*0.5) + 'px');
     $j('.loadingGif').css('top',String(wHeight / 2 - 19*0.5) + 'px');
     //fix loading gif
-    
 }
-
-
-function getShader(gl, id) {
-    var shaderScript = document.getElementById(id);
-    if (!shaderScript) {
-        return null;
-    }
-
-    var str = "";
-    var k = shaderScript.firstChild;
-    while (k) {
-        if (k.nodeType == 3) {
-            str += k.textContent;
-        }
-        k = k.nextSibling;
-    }
-
-    var shader;
-    if (shaderScript.type == "x-shader/x-fragment") {
-        shader = gl.createShader(gl.FRAGMENT_SHADER);
-    } else if (shaderScript.type == "x-shader/x-vertex") {
-        shader = gl.createShader(gl.VERTEX_SHADER);
-    } else {
-        return null;
-    }
-
-    gl.shaderSource(shader, str);
-    gl.compileShader(shader);
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        alert(gl.getShaderInfoLog(shader));
-        return null;
-    }
-
-    return shader;
-}
-
 
 var mouseDown = false;
 var lastMouseX = null;
