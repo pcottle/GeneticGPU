@@ -10,6 +10,9 @@ var maxY = sym;
 var minZ = -5;
 var maxZ = 5;
 
+//divisors
+var numRows = 70;
+
 var gl;
 
 
@@ -64,13 +67,16 @@ myShader.prototype.buildShader = function() {
     {
         console.warn("could not init shader",this.vShaderId);
     }
+    else
+    {
+        console.log("Shader object is compiled!");
+    }
 }
 
 myShader.prototype.buildAttributes = function() {
-
-    //our arcs
     this.switchToShader();
 
+    //always vertices as well
     this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexPosition");
     gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
 
@@ -79,41 +85,84 @@ myShader.prototype.buildAttributes = function() {
     {
         var varName = key;
         var varLocation = varName + "location";
-        console.log("adding this",varName,"to location",varLocation);
-
+        //console.log("adding this",varName,"to location",varLocation);
         this.shaderProgram[varLocation] = gl.getUniformLocation(this.shaderProgram,varName);
     }
+};
+
+myShader.prototype.drawGrid = function(matrixAttributeUpdates) {
+    //here matrixattributeupdates is optional. we might not need them if we have a fixed projection matrix
+    this.switchToShader();
+
+    //update the right matrices
+    if(matrixAttributeUpdates)
+    {
+        //this will replace them in JS memory and also update them on the gpu
+        this.updateAttributes(matrixAttributeUpdates);
+    }
+
+    //bind the buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER,gridVertexPositionBuffer);
+    gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, gridVertexPositionBuffer.numItems);
 };
 
 myShader.prototype.switchToShader = function() {
     gl.useProgram(this.shaderProgram);
 };
 
-myShader.prototype.updateUniforms = function(attributes) {
+myShader.prototype.updateAttributes = function(attributes) {
     for(key in attributes)
     {
         var varName = key;
-        //check for existence when we built
         if(!this.uniformAttributes[varName])
         {
-            console.warn("This attribute",varName,"was not initialized when we built the shader!!");
+            console.warn("Warning!! this attribute", varName, " has not been built yet, build it first!");
             continue;
         }
-        
-        var val = attributes[key].val;
-        var type = attributes[key].type;
+        this.uniformAttributes[varName] = attributes[varName];
+    }
+    //now go buffer all of these again
+    this.switchToShader();
+    this.bufferUniforms();
+};
+
+myShader.prototype.updateTime = function(timeVal) {
+    this.uniformAttributes['time'] = timeVal;
+};
+
+myShader.prototype.bufferUniforms = function() {
+    //uses my set of uniform attributes. essentially this means that i can have my own set of 
+    //a perspective matrix, a move matrix, and several other things without requiring a lot of switching between everything.
+    //
+    //
+    //the only thing im worried about is the uniform attribute... does this mean that it's uniform throughout the GPU? I don't think
+    //so because you are specifying unique locations for each variable on the shader program, but this requires investigation...
+    //
+    //
+
+    for(key in this.uniformAttributes)
+    {
+        var varName = key;
+
+        var val = this.uniformAttributes[key].val;
+        var type = this.uniformAttributes[key].type;
         var varLocation = varName + "location";
+
         if(type == 'f')
         {
-            gl.uniform1f(this.shaderProgram.varLocation,val);
+            gl.uniform1f(this.shaderProgram[varLocation],val);
+        }
+        else if(type == '4fm')
+        {
+            gl.uniformMatrix4fv(this.shaderProgram[varLocation],false,val);
         }
         else
         {
-            console.warn("unsupported type",f);
+            console.warn("unsupported type ",type);
         }
-
     }
-
 };
 
 
@@ -131,33 +180,10 @@ myShader.prototype.updateUniforms = function(attributes) {
 
 
 //global colors
-var blendShaderProgram;
 
 function initShaders() {
 
     //box shadeer
-    var blendVertexShader = getShader(gl, "shader-box-vs");
-    var blendFragShader = getShader(gl, "shader-box-fs");
-
-    blendShaderProgram = gl.createProgram();
-    gl.attachShader(blendShaderProgram, blendVertexShader);
-    gl.attachShader(blendShaderProgram, blendFragShader);
-    gl.linkProgram(blendShaderProgram);
-
-    if (!gl.getProgramParameter(blendShaderProgram, gl.LINK_STATUS))
-    {
-        alert("Could not initialise shaders Here!");
-    }
-
-    //our arcs
-    gl.useProgram(blendShaderProgram);
-
-    blendShaderProgram.vertexPositionAttribute = gl.getAttribLocation(blendShaderProgram,"aVertexPosition");
-    gl.enableVertexAttribArray(blendShaderProgram.vertexPositionAttribute);
-
-    blendShaderProgram.pMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uPMatrix");
-    blendShaderProgram.mvMatrixUniform = gl.getUniformLocation(blendShaderProgram,"uMVMatrix");
-
     var attributes = {
         'time':{type:'f',val:0},
         'minX':{type:'f',val:0},
@@ -166,17 +192,11 @@ function initShaders() {
         'minY':{type:'f',val:0},
         'minZ':{type:'f',val:0},
         'maxZ':{type:'f',val:0},
+        'pMatrix':{type:'4fm',val:pMatrix},
+        'mvMatrix':{type:'4fm',val:mvMatrix},
     };
 
     blendShaderObj = new myShader("shader-box-vs","shader-box-fs",attributes);
-
-    blendShaderProgram.timeUniform = gl.getUniformLocation(blendShaderProgram,"time");
-    blendShaderProgram.uniformMinX = gl.getUniformLocation(blendShaderProgram,"minX");
-    blendShaderProgram.uniformMaxX = gl.getUniformLocation(blendShaderProgram,"maxX");
-    blendShaderProgram.uniformMinY = gl.getUniformLocation(blendShaderProgram,"minY");
-    blendShaderProgram.uniformMaxY = gl.getUniformLocation(blendShaderProgram,"maxY");
-    blendShaderProgram.uniformMinZ = gl.getUniformLocation(blendShaderProgram,"minZ");
-    blendShaderProgram.uniformMaxZ = gl.getUniformLocation(blendShaderProgram,"maxZ");
 }
 
 
@@ -220,13 +240,33 @@ function mvPopMatrix() {
     mvMatrix = mvMatrixStack.pop();
 }
 
-function setMatrixUniforms() {
+function setObjUniforms() {
+    var now = new Date();
+    var deltaT = (now.getTime() - startTime) / 1000.0;
 
-    gl.uniformMatrix4fv(blendShaderProgram.pMatrixUniform, false, pMatrix);
-    gl.uniformMatrix4fv(blendShaderProgram.mvMatrixUniform, false, mvMatrix);
+    var attributes = {
+        'time':{type:'f',val:deltaT},
+        'minX':{type:'f',val:minX},
+        'maxX':{type:'f',val:maxX},
+        'maxY':{type:'f',val:maxY},
+        'minY':{type:'f',val:minY},
+        'minZ':{type:'f',val:minZ},
+        'maxZ':{type:'f',val:maxZ},
+        'pMatrix':{type:'4fm',val:pMatrix},
+        'mvMatrix':{type:'4fm',val:mvMatrix},
+    };
+
+    blendShaderObj.updateAttributes(attributes);
+}
+
+
+function setMatrixUniforms() {
 
     var now = new Date();
     var deltaT = (now.getTime() - startTime) / 1000.0;
+
+    gl.uniformMatrix4fv(blendShaderProgram.pMatrixUniform, false, pMatrix);
+    gl.uniformMatrix4fv(blendShaderProgram.mvMatrixUniform, false, mvMatrix);
 
     //all the things that change
     gl.uniform1f(blendShaderProgram.timeUniform,deltaT);
@@ -256,7 +296,9 @@ function initGridBuffers() {
         for(var temp = 0; temp < arguments.length; temp++)
         {
             point = arguments[temp];
-            gridVertexPositions.push(point.x, point.y, 0);
+            //omit adding z coordinate, its not needed
+            //gridVertexPositions.push(point.x, point.y, 0);
+            gridVertexPositions.push(point.x, point.y);
         }
     };
 
@@ -264,7 +306,7 @@ function initGridBuffers() {
         return {'x':x,'y':y};
     };
 
-    var numRows = 70.0;
+    //numRows = someValue (global now)
 
     var xMinBoard = -1;
     var xMaxBoard = 1;
@@ -272,8 +314,8 @@ function initGridBuffers() {
     var yMaxBoard = 1;
 
     var xDivisor = (xMaxBoard - xMinBoard) / numRows;
-    console.log(xDivisor);
     var yDivisor = (yMaxBoard - yMinBoard) / numRows;
+
     //the x loop
     for(var i = 0; i < numRows; i++)
     {
@@ -301,9 +343,11 @@ function initGridBuffers() {
     gridVertexPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gridVertexPositions), gl.STATIC_DRAW);
-    gridVertexPositionBuffer.itemSize = 3;
-    gridVertexPositionBuffer.numItems = gridVertexPositions.length / 3;
 
+    //we don't need the z coordinate here, so omit it from the array
+
+    gridVertexPositionBuffer.itemSize = 2;
+    gridVertexPositionBuffer.numItems = gridVertexPositions.length / gridVertexPositionBuffer.itemSize;
 }
 
 /*
@@ -356,16 +400,19 @@ function drawSceneEither(forPicking) {
     cameraPerspectiveClear();
     translateAndRotate();
 
-    gl.useProgram(blendShaderProgram);
-    setMatrixUniforms();
-    //here, we draw the grid
-    drawGrid();
+    cameraUpdates = {
+        'pMatrix':{type:'4fm','val':pMatrix},
+        'mvMatrix':{type:'4fm','val':mvMatrix},
+    };
 
+    //here, we draw the grid with our shader object
+    blendShaderObj.switchToShader();
+    setObjUniforms();
+    blendShaderObj.drawGrid(cameraUpdates);
 }
 
 function cameraPerspectiveClear() {
 
-    gl.useProgram(blendShaderProgram);
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 
     //we set our clearColor to be 0 0 0 0, so its essentially transparent.
@@ -411,21 +458,7 @@ function translateAndRotate() {
     mat4.scale(mvMatrix,[scaleAmount,scaleAmount,scaleAmount]);
 
     mat4.multiply(mvMatrix, earthRotationMatrix);
-    setMatrixUniforms();
 }
-
-
-function drawGrid() {
-    gl.useProgram(blendShaderProgram);
-    setMatrixUniforms();
-
-    //need a new buffer for grid positions
-    gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
-    gl.vertexAttribPointer(blendShaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-    gl.drawArrays(gl.TRIANGLES, 0, gridVertexPositionBuffer.numItems);
-}
-
 
 function tweenUpdate() {
     globalXrotate = rotVariablesForTween.x;

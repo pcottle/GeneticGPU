@@ -19,7 +19,7 @@
 <script type="text/javascript" src="geneticGPU.js"></script>
 
 <script id="shader-box-vs" type="x-shader/x-vertex">
-attribute vec3 aVertexPosition;
+attribute vec2 aVertexPosition;
 
 uniform float time;
 uniform float minX;
@@ -29,8 +29,8 @@ uniform float maxY;
 uniform float minZ;
 uniform float maxZ;
 
-uniform mat4 uMVMatrix;
-uniform mat4 uPMatrix;
+uniform mat4 mvMatrix;
+uniform mat4 pMatrix;
 
 varying vec4 vColor;
 varying vec4 vPos;
@@ -286,8 +286,8 @@ void main(void) {
     vec4 position = vec4(aVertexPosition[0],aVertexPosition[1],zScaled,1.0);
     //vec4 anotherPos = vec4(xOriginal / 100.0,0.0,zScaled,1.0);
 
-    gl_Position = uPMatrix * uMVMatrix * position;
-    //gl_Position = uPMatrix * uMVMatrix * anotherPos;
+    gl_Position = pMatrix * mvMatrix * position;
+    //gl_Position = pMatrix * mvMatrix * anotherPos;
 
     vPos = position;
     vColor = vec4(r,g,b,0.9);
