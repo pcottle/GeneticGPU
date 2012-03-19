@@ -67,10 +67,6 @@ myShader.prototype.buildShader = function() {
     {
         console.warn("could not init shader",this.vShaderId);
     }
-    else
-    {
-        console.log("Shader object is compiled!");
-    }
 }
 
 myShader.prototype.buildAttributes = function() {
@@ -381,12 +377,14 @@ function drawScene() {
     blendShaderObj.switchToShader();
     setObjUniforms();
     blendShaderObj.drawGrid(cameraUpdates);
+
+    //go find the minimum
+    findMinimumOnFrameBuffer();
 }
 
 function cameraPerspectiveClear() {
 
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-
     //we set our clearColor to be 0 0 0 0, so its essentially transparent.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -532,4 +530,82 @@ function getShader(gl, id) {
 
     return shader;
 }
+
+var wtf = false;
+function getPixelData(x,y,width,height)
+{
+    var pixelValues = new Uint8Array(4 * (width+1) * (height+1));
+    gl.readPixels(x,y,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixelValues);
+    if(!wtf)
+    {
+        wtf = true;
+        console.log(pixelValues);
+    }
+
+    return pixelValues;
+}
+
+function colorIntToPosition(colorValue,coordMin,coordMax)
+{
+    var originalPos = ((colorValue / 256.0) - 0.5) * 2;
+    var originalPosition = ((originalPos + 1)/2.0) * (coordMax - coordMin) + coordMin;
+
+    return originalPosition;
+}
+
+var minToSearch;
+var should = false;
+
+function findMinimumOnFrameBuffer(heightOfBuffer,widthOfBuffer) {
+    if(!should)
+    {
+        return;
+    }
+    if(!heightOfBuffer)
+    {
+        heightOfBuffer = gl.viewportHeight;
+    }
+    if(!widthOfBuffer)
+    {
+        widthOfBuffer = gl.viewportWidth;
+    }
+    if(!minToSearch)
+    {
+        minToSearch = gl.viewportHeight - 10;
+    }
+
+    //its actually faster to copy all the pixels at once!
+    var allPixels = getPixelData(0,0,widthOfBuffer,heightOfBuffer);
+
+    //scan from the bottom to the top on the current frame buffer, and return once we find something thats
+    //nonzero
+    for(var row = 0; row < heightOfBuffer; row++)
+    {
+        for(var x = 0; x < widthOfBuffer; x++)
+        {
+            var r = allPixels[row * widthOfBuffer * 4 + x*4];
+            var g = allPixels[row * widthOfBuffer * 4 + x*4 + 1];
+            var b = allPixels[row * widthOfBuffer * 4 + x*4 + 2];
+            //alpha would be the fourth entry here
+
+            if(r != 0 || g > 240 || b != 0)
+            {
+                console.log("the minimum has color r:",r);
+                minXpixel = x;
+                minYpixel = heightOfBuffer - row;
+                minRcolor = r;
+                minGcolor = g;
+                minBcolor = b;
+
+                //here calculate x and y based off of the numRows and stuff
+                var xPos = colorIntToPosition(r,minX,maxX);
+                var yPos = colorIntToPosition(g,minY,maxY);
+                console.log("at x:",xPos," and y:",yPos);
+                return {'x':xPos,'y':yPos};
+                break;
+            }
+        }
+    }
+};
+var minXpixel; var minYpixel;
 
