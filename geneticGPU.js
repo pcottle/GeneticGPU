@@ -545,6 +545,40 @@ function getPixelData(x,y,width,height)
     return pixelValues;
 }
 
+function dumpScreenShot()
+{
+    //get all the pixels of the viewport
+    var height = gl.viewportHeight;
+    var width = gl.viewportWidth;
+
+    var pixels = getPixelData(0,0,width,height);
+
+    var cvs = document.createElement('canvas');
+    cvs.width = width;
+    cvs.height = height;
+    var ctx2d = cvs.getContext('2d');
+    var image = ctx2d.createImageData(cvs.width, cvs.height);
+
+    for (var y = 0; y < cvs.height; y++){
+        for (var x = 0; x < cvs.width; x++){
+            var index = (y * cvs.width + x) * 4;
+            var index2 = ((cvs.height-1-y) * cvs.width + x) * 4;
+
+            for(var p = 0; p < 4; p++){
+                    image.data[index2 + p] = pixels[index + p];
+                }
+        }
+    }
+    //get the png data url
+    ctx2d.putImageData(image, 0, 0);
+    var pngDataUrl = ctx2d.toDataUrl();
+
+    var docImage = document.createElement('img');
+    docImage.src = pngDataUrl;
+
+    document.getElementByTagName('body')[0].appendChild(docImage);
+}
+
 function colorIntToPosition(colorValue,coordMin,coordMax)
 {
     var originalPos = ((colorValue / 256.0) - 0.5) * 2;
