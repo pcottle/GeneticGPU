@@ -553,9 +553,23 @@ function dumpScreenShot()
 
     var pixels = getPixelData(0,0,width,height);
 
-    var cvs = document.createElement('canvas');
-    cvs.width = width;
-    cvs.height = height;
+    //get or make the snapshot canvas
+    var cvs = document.getElementById('screenShotCanvas');
+    if(!cvs)
+    {
+        cvs = document.createElement('canvas');
+        cvs.id = 'screenShotCanvas';
+        document.getElementsByTagName('body')[0].appendChild(cvs);
+        cvs = document.getElementById('screenShotCanvas');
+        $j('#screenShotCanvas').css({
+                            'position':'absolute',
+                            'right':'0px',
+                            'top':'0px'});
+    }
+
+    cvs.width = gl.viewportWidth;
+    cvs.height = gl.viewportHeight;
+
     var ctx2d = cvs.getContext('2d');
     var image = ctx2d.createImageData(cvs.width, cvs.height);
 
@@ -569,14 +583,88 @@ function dumpScreenShot()
                 }
         }
     }
-    //get the png data url
+
+    //now we have transferred the pixels, lets go find the optimum
+    heightOfBuffer = cvs.height;
+    widthOfBuffer = cvs.width;
+    allPixels = pixels;
+
+    var haveFound = false;
+    var maxR = 0;
+
+    var minX = Number.MAX_VALUE;
+    var yAtMinX = 0;
+
+    for(var y = 0; y < heightOfBuffer; y++)
+    {
+        for(var x = 0; x < widthOfBuffer; x++)
+        {
+            var indexPixelData = (y * cvs.width + x) * 4;
+            var indexPixelDataAbove = ((y + 1) * cvs.width + x) * 4;
+            var indexCanvas = ((cvs.height - 1 - y) * cvs.width + x)*4;
+
+            var r = allPixels[indexPixelData];
+            var rAbove = allPixels[indexPixelDataAbove];
+
+            if(r > maxR)
+            {
+                maxR = r;
+            }
+
+            var g = allPixels[indexPixelData + 1];
+            var b = allPixels[indexPixelData + 2];
+            //alpha would be the fourth entry here
+
+            if(r != 0 && x < minX)
+            {
+                minX = x;
+                yAtMinX = y;
+            }
+
+
+            if((r != 0 || g != 0 || b != 0) && !haveFound)
+            {
+                haveFound = true;
+                console.log("found one!");
+
+                //here calculate x and y based off of the numRows and stuff
+                xAtMin = x;
+                var xPos = colorIntToPosition(r,minX,maxX);
+                var yPos = colorIntToPosition(g,minY,maxY);
+                var xPos2 = colorIntToPosition(rAbove,minX,maxX);
+
+                console.log("with color r:",r," and g",g);
+                console.log("at position x:",xPos," and y:",yPos);
+                console.log("***ABOVE***");
+                console.log("color r:",rAbove," and pos:",xPos2);
+
+                //color the pixels here
+                for(var p = 0; p < 4; p++)
+                {
+                    image.data[indexCanvas + p] = 255;
+                }
+            }
+        }
+    }
+
+    //now sample this row...
+    y = yAtMinX;
+    rArray = [];
+    for(var x = 0; x < widthOfBuffer; x++)
+    {
+        var indexPixelData = (y * cvs.width + x) * 4;
+        var indexCanvas = ((cvs.height -1 - y) * cvs.width + x)*4;
+
+        var r = allPixels[indexPixelData];
+        rArray.push(r);
+        image.data[indexCanvas] = 0;
+    }
+    console.log("r color at gradient is",rArray[xAtMin]);
+
+    console.log("max r value was",maxR);
+
+    //put the image onto the canvas
     ctx2d.putImageData(image, 0, 0);
-    var pngDataUrl = ctx2d.toDataUrl();
-
-    var docImage = document.createElement('img');
-    docImage.src = pngDataUrl;
-
-    document.getElementByTagName('body')[0].appendChild(docImage);
 }
 
 function colorIntToPosition(colorValue,coordMin,coordMax)
@@ -584,6 +672,7 @@ function colorIntToPosition(colorValue,coordMin,coordMax)
     var originalPos = ((colorValue / 256.0) - 0.5) * 2;
     var originalPosition = ((originalPos + 1)/2.0) * (coordMax - coordMin) + coordMin;
 
+    return originalPos;
     return originalPosition;
 }
 
@@ -622,7 +711,7 @@ function findMinimumOnFrameBuffer(heightOfBuffer,widthOfBuffer) {
             var b = allPixels[row * widthOfBuffer * 4 + x*4 + 2];
             //alpha would be the fourth entry here
 
-            if(r != 0 || g > 240 || b != 0)
+            if(r != 0 || g != 0 || b != 0)
             {
                 console.log("the minimum has color r:",r);
                 minXpixel = x;

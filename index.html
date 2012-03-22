@@ -1,7 +1,7 @@
 <html>
 
 <head>
-<title> Friend Mapper!</title>
+<title> Genetic GPU!</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 <meta property="og:title" content="Friend Mapper"/>
 <meta property="og:type" content="website"/>
@@ -537,15 +537,11 @@ void main(void) {
     gl_FragColor = vec4(r,g,b,1);
     //cool part 1
     //to show how optimum is selected out!!!!!
-    //gl_FragColor = vec4(vPos[0] * 0.5 + 0.5,vPos[1] * 0.5 + 0.5,0,1);
-    //if(abs(vPos[1]) < 0.09 && abs(vPos[0]) < 0.09)
-    //{
-        //gl_FragColor = vec4(0.0,1,0.0,1.0);
-    //}
-    //else
-    //{
-        //gl_FragColor = vec4(0.0,0.05,0.0,1.0);
-    //}
+    gl_FragColor = vec4(vPos[0] * 0.5 + 0.5,vPos[1] * 0.5 + 0.5,0,1);
+    gl_FragColor = vec4(vPos[0] * 0.5 + 0.5,0,0,1);
+    //gl_FragColor = vec4(pow(vPos[0] * 0.5 + 0.5,0.5),0,0,1);
+    //gl_FragColor = vec4(pow(vPos[0],2.0),pow(vPos[1],2.0),0,1);
+
     //gl_FragColor = vec4(z,0,0,1);
     //gl_FragColor = vColor;
 }
@@ -576,7 +572,11 @@ function zeroPad(num,count)
 
 function initGL(canvas) {
     try {
-        gl = canvas.getContext("experimental-webgl",{preserveDrawingBuffer:true});
+        //webgl context attributes!!
+        gl = canvas.getContext("experimental-webgl",{
+                                preserveDrawingBuffer:true,
+                                antialias:false,
+                                });
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
     } catch (e) {
@@ -627,7 +627,7 @@ function resizeWindow()
 
     //viewport sizes
     vHeight = wHeight;
-    vWidth = wWidth;
+    vWidth = Math.round(wWidth / 2);
 
     //set the width to the canvas
     $j('#earth-canvas').attr('width',String(vWidth) + 'px');
