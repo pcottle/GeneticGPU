@@ -502,7 +502,6 @@ function drawScene() {
         //go find the minimum
     if(asd)
     {
-        asd = false;
         pos = findMinimumOnFrameBuffer();
         console.log("min position x:",pos.x," y:",pos.y);
     }
@@ -510,8 +509,8 @@ function drawScene() {
     ballUpdates = {
         'pMatrix':{type:'4fm','val':pMatrix},
         'mvMatrix':{type:'4fm','val':mvMatrix},
-        'xPos':{type:'f','val':pos.x},
-        'yPos':{type:'f','val':pos.y},
+        'xPos':{type:'f','val':pos.xOrig},
+        'yPos':{type:'f','val':pos.yOrig},
     };
 
 
@@ -519,7 +518,7 @@ function drawScene() {
 }
 
 var asd = false;
-var pos = {'x':0,'y':0};
+var pos = {'xOrig':0,'yOrig':0};
 
 function cameraPerspectiveClear() {
 
@@ -764,7 +763,10 @@ function findMinimumOnFrameBuffer(heightOfBuffer,widthOfBuffer) {
     var xPos = colorIntToPosition(colors.r,minX,maxX,numRows); //TODO numrows constant
     var yPos = colorIntToPosition(colors.g,minY,maxY,numRows);
 
-    return {'x':xPos,'y':yPos};
+    var xOriginalPos = (colors.r / 255) * 2 - 1;
+    var yOriginalPos = (colors.g / 255) * 2 - 1;
+
+    return {'x':xPos,'y':yPos,'xOrig':xOriginalPos,'yOrig':yOriginalPos};
 }
 
 function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
