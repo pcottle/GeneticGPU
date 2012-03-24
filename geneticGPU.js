@@ -11,7 +11,7 @@ var minZ = -3;
 var maxZ = 3;
 
 //divisors
-var numRows = 70;
+var numRows = 71;
 
 var gl;
 
@@ -42,12 +42,21 @@ var blendShaderObj = null;
 
 
 /*****************CLASSES*******************/
-var myShader = function(vShaderId,fShaderId,uniformAttributes) {
+var myShader = function(vShaderId,fShaderId,uniformAttributes,isBall) {
     this.vShaderId = vShaderId;
     this.fShaderId = fShaderId;
 
     this.uniformAttributes = uniformAttributes;
     this.shaderProgram = null;
+
+    if(isBall)
+    {
+        this.isBall = true;
+    }
+    else
+    {
+        this.isBall = false;
+    }
 
     this.buildShader();
     this.buildAttributes();
@@ -76,6 +85,12 @@ myShader.prototype.buildAttributes = function() {
     this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexPosition");
     gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
 
+    if(this.isBall)
+    {
+        this.shaderProgram.vertexColorAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexColor");
+        gl.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
+    }
+
     //do all the uniforms
     for(key in this.uniformAttributes)
     {
@@ -97,11 +112,26 @@ myShader.prototype.drawGrid = function(matrixAttributeUpdates) {
         this.updateAttributes(matrixAttributeUpdates);
     }
 
-    //bind the buffer
-    gl.bindBuffer(gl.ARRAY_BUFFER,gridVertexPositionBuffer);
-    gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    if(!this.isBall)
+    {
+        //bind the buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER,gridVertexPositionBuffer);
+        gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-    gl.drawArrays(gl.TRIANGLES, 0, gridVertexPositionBuffer.numItems);
+        gl.drawArrays(gl.TRIANGLES, 0, gridVertexPositionBuffer.numItems);
+    }
+    else
+    {
+        //bind both position and color
+        gl.bindBuffer(gl.ARRAY_BUFFER,ballVertexPositionBuffer);
+        gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, ballVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER,ballVertexColorBuffer);
+        gl.vertexAttribPointer(this.shaderProgram.vertexColorAttribute, ballVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ballVertexIndexBuffer);
+        gl.drawElements(gl.TRIANGLES, ballVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
 };
 
 myShader.prototype.switchToShader = function() {
@@ -192,7 +222,15 @@ function initShaders() {
         'mvMatrix':{type:'4fm',val:mvMatrix},
     };
 
-    blendShaderObj = new myShader("shader-box-vs","shader-box-fs",attributes);
+    var ballAttributes = {
+        'pMatrix':{type:'4fm',val:pMatrix},
+        'mvMatrix':{type:'4fm',val:mvMatrix},
+        'xPos':{type:'f',val:0},
+        'yPos':{type:'f',val:0},
+    };
+
+    blendShaderObj = new myShader("shader-box-vs","shader-box-fs",attributes,false);
+    ballShaderObj = new myShader("shader-simple-vs","shader-simple-fs",ballAttributes,true);
 }
 
 
@@ -260,6 +298,10 @@ function degToRad(degrees) {
 }
 var gridVertexPositionBuffer;
 
+var ballVertexPositionBuffer;
+var ballVertexColorBuffer;
+var ballVertexIndexBuffer;
+
 var vertices;
 var colors;
 
@@ -289,8 +331,8 @@ function initGridBuffers() {
     var yMinBoard = -1;
     var yMaxBoard = 1;
 
-    var xDivisor = (xMaxBoard - xMinBoard) / numRows;
-    var yDivisor = (yMaxBoard - yMinBoard) / numRows;
+    var xDivisor = (xMaxBoard - xMinBoard) / (numRows - 1);
+    var yDivisor = (yMaxBoard - yMinBoard) / (numRows - 1);
 
     //the x loop
     for(var i = 0; i < numRows; i++)
@@ -324,6 +366,85 @@ function initGridBuffers() {
 
     gridVertexPositionBuffer.itemSize = 2;
     gridVertexPositionBuffer.numItems = gridVertexPositions.length / gridVertexPositionBuffer.itemSize;
+
+    
+    //do the ball too
+    initBallBuffers();
+}
+
+function initBallBuffers() {
+    //generate the points to draw
+
+    var latitudeBands = 10;
+    var longitudeBands = 10;
+    var radius = 0.2;
+
+    var ballVertexPositions = [];
+    var ballVertexColors = [];
+
+    for (var latNumber=0; latNumber <= latitudeBands; latNumber++) {
+        var theta = latNumber * Math.PI / latitudeBands;
+        var sinTheta = Math.sin(theta);
+        var cosTheta = Math.cos(theta);
+
+        for (var longNumber=0; longNumber <= longitudeBands; longNumber++) {
+                var phi = longNumber * 2 * Math.PI / longitudeBands;
+                var sinPhi = Math.sin(phi);
+                var cosPhi = Math.cos(phi);
+
+                var x = cosPhi * sinTheta;
+                var y = cosTheta;
+                var z = sinPhi * sinTheta;
+
+                ballVertexPositions.push(radius * x);
+                ballVertexPositions.push(radius * y);
+                ballVertexPositions.push(radius * z);
+
+                //push colors
+                ballVertexColors.push(0);
+                ballVertexColors.push(x*0.5 + 0.5);
+                ballVertexColors.push(z*0.5 + 0.5);
+                ballVertexColors.push(0.9);
+        }
+    }
+
+    var indexData = [];
+    for (var latNumber=0; latNumber < latitudeBands; latNumber++) {
+        for (var longNumber=0; longNumber < longitudeBands; longNumber++) {
+
+            var first = (latNumber * (longitudeBands + 1)) + longNumber;
+            var second = first + longitudeBands + 1;
+
+            indexData.push(first);
+            indexData.push(second);
+            indexData.push(first + 1);
+
+            indexData.push(second);
+            indexData.push(second + 1);
+            indexData.push(first + 1);
+        }
+    }
+
+    ballVertexPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ballVertexPositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ballVertexPositions), gl.STATIC_DRAW);
+
+    ballVertexColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ballVertexColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ballVertexColors), gl.STATIC_DRAW);
+
+    ballVertexPositionBuffer.itemSize = 3;
+    ballVertexPositionBuffer.numItems = ballVertexPositions.length / ballVertexPositionBuffer.itemSize;
+
+    ballVertexColorBuffer.itemSize = 4;
+    ballVertexColorBuffer.numItems = ballVertexColors.length / ballVertexColorBuffer.itemSize;
+
+    ballVertexIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ballVertexIndexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STATIC_DRAW);
+
+    ballVertexIndexBuffer.itemSize = 1;
+    ballVertexIndexBuffer.numItems = indexData.length / 1;
 }
 
 /*
@@ -378,9 +499,27 @@ function drawScene() {
     setObjUniforms();
     blendShaderObj.drawGrid(cameraUpdates);
 
-    //go find the minimum
-    findMinimumOnFrameBuffer();
+        //go find the minimum
+    if(asd)
+    {
+        asd = false;
+        pos = findMinimumOnFrameBuffer();
+        console.log("min position x:",pos.x," y:",pos.y);
+    }
+
+    ballUpdates = {
+        'pMatrix':{type:'4fm','val':pMatrix},
+        'mvMatrix':{type:'4fm','val':mvMatrix},
+        'xPos':{type:'f','val':pos.x},
+        'yPos':{type:'f','val':pos.y},
+    };
+
+
+    ballShaderObj.drawGrid(ballUpdates);
 }
+
+var asd = false;
+var pos = {'x':0,'y':0};
 
 function cameraPerspectiveClear() {
 
@@ -531,16 +670,10 @@ function getShader(gl, id) {
     return shader;
 }
 
-var wtf = false;
 function getPixelData(x,y,width,height)
 {
     var pixelValues = new Uint8Array(4 * (width+1) * (height+1));
     gl.readPixels(x,y,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixelValues);
-    if(!wtf)
-    {
-        wtf = true;
-        console.log(pixelValues);
-    }
 
     return pixelValues;
 }
@@ -555,6 +688,7 @@ function dumpScreenShot()
 
     //get or make the snapshot canvas
     var cvs = document.getElementById('screenShotCanvas');
+
     if(!cvs)
     {
         cvs = document.createElement('canvas');
@@ -584,106 +718,57 @@ function dumpScreenShot()
         }
     }
 
-    //now we have transferred the pixels, lets go find the optimum
-    heightOfBuffer = cvs.height;
-    widthOfBuffer = cvs.width;
-    allPixels = pixels;
-
-    var haveFound = false;
-    var maxR = 0;
-
-    var minX = Number.MAX_VALUE;
-    var yAtMinX = 0;
-
-    for(var y = 0; y < heightOfBuffer; y++)
-    {
-        for(var x = 0; x < widthOfBuffer; x++)
-        {
-            var indexPixelData = (y * cvs.width + x) * 4;
-            var indexPixelDataAbove = ((y + 1) * cvs.width + x) * 4;
-            var indexCanvas = ((cvs.height - 1 - y) * cvs.width + x)*4;
-
-            var r = allPixels[indexPixelData];
-            var rAbove = allPixels[indexPixelDataAbove];
-
-            if(r > maxR)
-            {
-                maxR = r;
-            }
-
-            var g = allPixels[indexPixelData + 1];
-            var b = allPixels[indexPixelData + 2];
-            //alpha would be the fourth entry here
-
-            if(r != 0 && x < minX)
-            {
-                minX = x;
-                yAtMinX = y;
-            }
-
-
-            if((r != 0 || g != 0 || b != 0) && !haveFound)
-            {
-                haveFound = true;
-                console.log("found one!");
-
-                //here calculate x and y based off of the numRows and stuff
-                xAtMin = x;
-                var xPos = colorIntToPosition(r,minX,maxX);
-                var yPos = colorIntToPosition(g,minY,maxY);
-                var xPos2 = colorIntToPosition(rAbove,minX,maxX);
-
-                console.log("with color r:",r," and g",g);
-                console.log("at position x:",xPos," and y:",yPos);
-                console.log("***ABOVE***");
-                console.log("color r:",rAbove," and pos:",xPos2);
-
-                //color the pixels here
-                for(var p = 0; p < 4; p++)
-                {
-                    image.data[indexCanvas + p] = 255;
-                }
-            }
-        }
-    }
-
-    //now sample this row...
-    y = yAtMinX;
-    rArray = [];
-    for(var x = 0; x < widthOfBuffer; x++)
-    {
-        var indexPixelData = (y * cvs.width + x) * 4;
-        var indexCanvas = ((cvs.height -1 - y) * cvs.width + x)*4;
-
-        var r = allPixels[indexPixelData];
-        rArray.push(r);
-        image.data[indexCanvas] = 0;
-    }
-    console.log("r color at gradient is",rArray[xAtMin]);
-
-    console.log("max r value was",maxR);
-
     //put the image onto the canvas
     ctx2d.putImageData(image, 0, 0);
 }
 
-function colorIntToPosition(colorValue,coordMin,coordMax)
+function colorIntToPosition(colorValue,coordMin,coordMax,numRows)
 {
-    var originalPos = ((colorValue / 256.0) - 0.5) * 2;
-    var originalPosition = ((originalPos + 1)/2.0) * (coordMax - coordMin) + coordMin;
+    var positionInUniformGridFromMin = (colorValue / 256.0);
+    //we will round this position in the uniform grid by going to numrows, rounding, and then back
+    var roundedPos = Math.round(positionInUniformGridFromMin * (numRows - 1));
+    var coordDivisor = (coordMax - coordMin) / (numRows - 1);
 
-    return originalPos;
-    return originalPosition;
+    //yay this works!
+    //console.log("the rounded pos is",roundedPos);
+    //console.log("coord divisor",coordDivisor);
+    
+    //rounded pos is the 0-indexed base position of the row in the grid. aka for a 3 row grid, 0 is the min, 1 is middle, 2 is max
+    //so then to get the "snapped" coordinate, we take the position, multiply it by the divisor, and then add it to the min
+    var coordPos = coordDivisor * roundedPos + coordMin;
+
+    return coordPos;
 }
 
-var minToSearch;
-var should = false;
+function makeCoordToIndexConverter(height,width) {
+    var converter = function(x,y) {
+            var index = 4*(y * width + x);
+            return index;
+    };
+    return converter;
+}
 
 function findMinimumOnFrameBuffer(heightOfBuffer,widthOfBuffer) {
-    if(!should)
+    var colors = findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer);
+
+    //TODO here we will pass in these rgb's into another function to calculate the position but for now
+    //it will be a fixed coordinate transformation
+
+    //if we didnt find anything just give up
+    if(colors.noneFound)
     {
-        return;
+        return null;
     }
+
+    //otherwise, conver to x and y. another TODO. here we are assuming that r = x and y = b
+    var xPos = colorIntToPosition(colors.r,minX,maxX,numRows); //TODO numrows constant
+    var yPos = colorIntToPosition(colors.g,minY,maxY,numRows);
+
+    return {'x':xPos,'y':yPos};
+}
+
+function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
+    //default to viewport if nothing is specified
     if(!heightOfBuffer)
     {
         heightOfBuffer = gl.viewportHeight;
@@ -692,43 +777,51 @@ function findMinimumOnFrameBuffer(heightOfBuffer,widthOfBuffer) {
     {
         widthOfBuffer = gl.viewportWidth;
     }
-    if(!minToSearch)
-    {
-        minToSearch = gl.viewportHeight - 10;
-    }
 
-    //its actually faster to copy all the pixels at once!
+    //use a closure to simplify our conversion process
+    var converter = makeCoordToIndexConverter(heightOfBuffer,widthOfBuffer);
+
+    //its actually faster to copy all the pixels at once and loop through that Uint8 array
     var allPixels = getPixelData(0,0,widthOfBuffer,heightOfBuffer);
 
+    var anyColorPositive = function(x,y) {
+        var rIndex = converter(x,y);
+        return allPixels[rIndex] || allPixels[rIndex+1] || allPixels[rIndex+2];
+    };
+
     //scan from the bottom to the top on the current frame buffer, and return once we find something thats
-    //nonzero
-    for(var row = 0; row < heightOfBuffer; row++)
+    //nonzero. Make sure to take the middle of the row that has an optimum
+    for(var y = 0; y < heightOfBuffer; y++)
     {
         for(var x = 0; x < widthOfBuffer; x++)
         {
-            var r = allPixels[row * widthOfBuffer * 4 + x*4];
-            var g = allPixels[row * widthOfBuffer * 4 + x*4 + 1];
-            var b = allPixels[row * widthOfBuffer * 4 + x*4 + 2];
-            //alpha would be the fourth entry here
-
-            if(r != 0 || g != 0 || b != 0)
+            if(anyColorPositive(x,y))
             {
-                console.log("the minimum has color r:",r);
-                minXpixel = x;
-                minYpixel = heightOfBuffer - row;
-                minRcolor = r;
-                minGcolor = g;
-                minBcolor = b;
+                //here we need to loop forward while the row still has positive colors just so we can get the middle
+                var xLeft = x;
+                var xRight = x + 1;
+                //move right while there are still positive colors
+                while(xRight < widthOfBuffer && anyColorPositive(xRight,y))
+                {
+                    xRight++;
+                }
+                //now get the "middle"
+                var xMiddle = Math.round(xRight*0.5 + xLeft*0.5);
 
-                //here calculate x and y based off of the numRows and stuff
-                var xPos = colorIntToPosition(r,minX,maxX);
-                var yPos = colorIntToPosition(g,minY,maxY);
-                console.log("at x:",xPos," and y:",yPos);
-                return {'x':xPos,'y':yPos};
-                break;
+                var rIndex = converter(xMiddle,y);
+                
+                var r = allPixels[rIndex];
+                var g = allPixels[rIndex+1];
+                var b = allPixels[rIndex+1];
+
+                //return these optimums
+                return {'r':r,'g':g,'b':b};
             }
         }
     }
+
+    //this line should never execute unless we are on a completely empty framebuffer
+    return {'r':0,'g':0,'b':0,'noneFound':true};
 };
 var minXpixel; var minYpixel;
 
