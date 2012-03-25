@@ -227,6 +227,7 @@ function initShaders() {
         'mvMatrix':{type:'4fm',val:mvMatrix},
         'xPos':{type:'f',val:0},
         'yPos':{type:'f',val:0},
+        'zPos':{type:'f',val:0},
     };
 
     blendShaderObj = new myShader("shader-box-vs","shader-box-fs",attributes,false);
@@ -502,8 +503,12 @@ function drawScene() {
         //go find the minimum
     if(asd)
     {
-        pos = findMinimumOnFrameBuffer();
-        console.log("min position x:",pos.x," y:",pos.y);
+        var thisPos = findMinimumOnFrameBuffer();
+        if(thisPos.x > -2.5)
+        {
+            pos = thisPos;
+        }
+        console.log("min position x:",pos.x," y:",pos.y, " zORIGINAL:",pos.zOrig);
     }
 
     ballUpdates = {
@@ -511,6 +516,7 @@ function drawScene() {
         'mvMatrix':{type:'4fm','val':mvMatrix},
         'xPos':{type:'f','val':pos.xOrig},
         'yPos':{type:'f','val':pos.yOrig},
+        'zPos':{type:'f','val':pos.zOrig},
     };
 
 
@@ -766,7 +772,7 @@ function findMinimumOnFrameBuffer(heightOfBuffer,widthOfBuffer) {
     var xOriginalPos = (colors.r / 255) * 2 - 1;
     var yOriginalPos = (colors.g / 255) * 2 - 1;
 
-    return {'x':xPos,'y':yPos,'xOrig':xOriginalPos,'yOrig':yOriginalPos};
+    return {'x':xPos,'y':yPos,'xOrig':xOriginalPos,'yOrig':yOriginalPos,'zOrig':colors.estZ};
 }
 
 function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
@@ -816,8 +822,9 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
                 var g = allPixels[rIndex+1];
                 var b = allPixels[rIndex+1];
 
-                //return these optimums
-                return {'r':r,'g':g,'b':b};
+                //return these optimums and an estimate for the z
+                var estZ = (y / heightOfBuffer) * 2 - 1;
+                return {'r':r,'g':g,'b':b,'estZ':estZ};
             }
         }
     }
