@@ -89,30 +89,52 @@ Problem.prototype.validateEquationString = function(equationString) {
     return true;
 };
 
+var getSource = function(obj) {
+    if(obj.match)
+    {
+        //its a string, return it
+        return obj;
+    }
+    if(obj.length)
+    {
+        //its a jquery array, get first element and get the text there
+        return obj[0].text;
+    }
+    //its an html element
+    return obj.text;
+};
 
-var shaderTemplateRenderer = function(variables,equationString,vertexShaderSrc,fragShaderSrc) {
+var shaderTemplateRenderer = function(problem,vertexShaderSrc,fragShaderSrc) {
     //so they can pass in either a jquery object, a single HTML element, or a string of the source
-    var getSource = function(obj) {
-        if(obj.match)
-        {
-            //its a string, return it
-            return obj;
-        }
-        if(obj.length)
-        {
-            //its a jquery array, get first element and get the text there
-            return obj[0].text;
-        }
-        //its an html element
-        return obj.text;
-    };
     this.validateArguments(variables,equationString,vertexShaderSrc,fragShaderSrc);
 
     this.vertexShaderTemplate = getSource(vertexShaderSrc);
     this.fragShaderTemplate = getSource(fragShaderSrc);
 
+    this.problem = problem;
+
     this.buildShaders();
 }
+
+shaderTemplateRenderer.prototype.buildShaders = function() {
+    //ok so essentially loop through in groups of "3" variables and compile the shader object to extract them
+    var varsToSolve = this.problem.variables;
+
+    var myShaders = [];
+
+    while(varsToSolve.length > 0)
+    {
+        var theseVars = varsToSolve.splice(0,3);
+        var thisShader = this.buildShaderForVariables(theseVars);
+    }
+
+};
+
+shaderTemplateRenderer.prototype.buildShaderForVariables = function(theseVars) {
+
+
+
+};
 
 shaderTemplateRenderer.prototype.validateArguments = function(variables,equationString,vertexShaderSrc,fragShaderSrc) {
 
@@ -130,9 +152,9 @@ shaderTemplateRenderer.prototype.validateArguments = function(variables,equation
     }
 };
 
-var myShader = function(vShaderId,fShaderId,uniformAttributes,isBall) {
-    this.vShaderId = vShaderId;
-    this.fShaderId = fShaderId;
+var myShader = function(vShaderSrc,fShaderSrc,uniformAttributes,isBall) {
+    this.vShaderSrc = getSource(vShaderSrc);
+    this.fShaderSrc = getSource(fShaderSrc);
 
     this.uniformAttributes = uniformAttributes;
     this.shaderProgram = null;
@@ -151,8 +173,8 @@ var myShader = function(vShaderId,fShaderId,uniformAttributes,isBall) {
 };
 
 myShader.prototype.buildShader = function() {
-    var vShader = getShader(gl,this.vShaderId);
-    var fShader = getShader(gl,this.fShaderId);
+    var vShader = compileShader(this.vShaderSrc,"vertex");
+    var fShader = compileShader(this.fShaderSrc,"frag");
 
     this.shaderProgram = gl.createProgram();
     gl.attachShader(this.shaderProgram,vShader);
@@ -160,6 +182,7 @@ myShader.prototype.buildShader = function() {
     gl.linkProgram(this.shaderProgram);
 
     var linkStatus = gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS);
+
     if(linkStatus != true)
     {
         console.warn("could not init shader",this.vShaderId);
@@ -318,8 +341,8 @@ function initShaders() {
         'zPos':{type:'f',val:0},
     };
 
-    blendShaderObj = new myShader("shader-box-vs","shader-box-fs",attributes,false);
-    ballShaderObj = new myShader("shader-simple-vs","shader-simple-fs",ballAttributes,true);
+    blendShaderObj = new myShader($j("#shader-box-vs"),$j("#shader-box-fs"),attributes,false);
+    ballShaderObj = new myShader($j("#shader-simple-vs"),$j("#shader-simple-fs"),ballAttributes,true);
 }
 
 
@@ -743,17 +766,18 @@ function getShader(gl, id) {
         k = k.nextSibling;
     }
 
-    return compileShader(k,shaderScript.type);
+    return compileShader(str,shaderScript.type);
 }
 
 function compileShader(str,type) {
 
     var shader;
-    if (type == "x-shader/x-fragment") {
+    if (type == "x-shader/x-fragment" || type == "frag" || type == "fragment") {
         shader = gl.createShader(gl.FRAGMENT_SHADER);
-    } else if (type == "x-shader/x-vertex") {
+    } else if (type == "x-shader/x-vertex" || type == "vertex") {
         shader = gl.createShader(gl.VERTEX_SHADER);
     } else {
+        throw new Error("invalid shader type: " + type);
         return null;
     }
 
