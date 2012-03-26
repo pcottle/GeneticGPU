@@ -42,6 +42,94 @@ var blendShaderObj = null;
 
 
 /*****************CLASSES*******************/
+var Problem = function(equationString) {
+
+    if(!this.validateEquationString(equationString))
+    {
+        return null;
+    }
+
+    //ok so we have a valid equation
+    //get all the variables besides z
+
+    //first replace all the "pow" operations and such
+    this.equationString = equationString;
+
+    var es = equationString;
+
+    es = es.replace(/([a-zA-Z][a-zA-Z]+)/g,"");
+
+    //now extract out all single variables, except for z because that's the cost function
+    var variables = es.match(/([a-yA-Y])/g);
+
+    this.vars = variables;
+    this.numVars = variables.length;
+};
+
+Problem.prototype.validateEquationString = function(equationString) {
+    //first remove all the valid digits
+    var es = equationString;
+
+    //first check that it begins with "z = " something
+    if(!es.match(/^[ ]*z[ ]*=/g))
+    {
+        alert("the equation must start with z = something. Z is your cost function that you are trying to minimize with non-convex optimization");
+        return null;
+    }
+
+    es = es.replace(/(\d+)\.(\d+)/g,"");
+
+    //now see if there are digits left
+    if(es.match(/\d+/g))
+    {
+        alert("You need to make all numbers floats for the Shader Language. These numbers need a .0 after them: " + es);
+        return null;
+    }
+    //probably valid, still need to compile it of course though but this catches the user mistakes
+    return true;
+};
+
+
+var shaderTemplateRenderer = function(variables,equationString,vertexShaderSrc,fragShaderSrc) {
+    //so they can pass in either a jquery object, a single HTML element, or a string of the source
+    var getSource = function(obj) {
+        if(obj.match)
+        {
+            //its a string, return it
+            return obj;
+        }
+        if(obj.length)
+        {
+            //its a jquery array, get first element and get the text there
+            return obj[0].text;
+        }
+        //its an html element
+        return obj.text;
+    };
+    this.validateArguments(variables,equationString,vertexShaderSrc,fragShaderSrc);
+
+    this.vertexShaderTemplate = getSource(vertexShaderSrc);
+    this.fragShaderTemplate = getSource(fragShaderSrc);
+
+    this.buildShaders();
+}
+
+shaderTemplateRenderer.prototype.validateArguments = function(variables,equationString,vertexShaderSrc,fragShaderSrc) {
+
+    if(!vertexShaderSrc || !fragShaderSrc)
+    {
+        throw new Error("Specify two valid shader sources!");
+    }
+    if(!equationString)
+    {
+        throw new Error("specify a valid equation string");
+    }
+    if(!variables)
+    {
+        throw new Error("give me an array of variables!");
+    }
+};
+
 var myShader = function(vShaderId,fShaderId,uniformAttributes,isBall) {
     this.vShaderId = vShaderId;
     this.fShaderId = fShaderId;
@@ -655,10 +743,15 @@ function getShader(gl, id) {
         k = k.nextSibling;
     }
 
+    return compileShader(k,shaderScript.type);
+}
+
+function compileShader(str,type) {
+
     var shader;
-    if (shaderScript.type == "x-shader/x-fragment") {
+    if (type == "x-shader/x-fragment") {
         shader = gl.createShader(gl.FRAGMENT_SHADER);
-    } else if (shaderScript.type == "x-shader/x-vertex") {
+    } else if (type == "x-shader/x-vertex") {
         shader = gl.createShader(gl.VERTEX_SHADER);
     } else {
         return null;
