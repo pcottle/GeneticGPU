@@ -56,242 +56,25 @@ void main(void) {
 attribute vec2 aVertexPosition;
 
 uniform float time;
+
+//*** our generated uniforms below:
+//uniformStart
 uniform float minX;
 uniform float minY;
 uniform float maxX;
 uniform float maxY;
 uniform float minZ;
 uniform float maxZ;
+//uniformEnd
 
 uniform mat4 mvMatrix;
 uniform mat4 pMatrix;
 
-varying vec4 vColor;
 varying vec4 vPos;
+varying vec3 varData;
+
 varying float vminZ;
 varying float vmaxZ;
-
-float convertZToG(float z)
-{
-    float h, s, v;
-    float f, p, q, t;
-    float r,g,b;
-    int i;
-
-    //ok so first we need to map the z value to a number of degrees
-    //
-    //then with that number of degrees, we need to reduce that to
-    //0 ->360
-    //
-    //then, we need to map this to an RGB value with the color
-    //conversion formulas
-
-    s = 0.9; v = 0.9;
-
-    float dpz= maxZ - minZ;
-    float degreesPerZ = 630.0 / dpz;
-
-    float hueDegrees = z * degreesPerZ + 90.0;
-
-    //limit to 0->360
-    hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
-
-    h = hueDegrees;
-    h /= 60.0;
-    i = int(floor(h));
-    f = h - float(i);
-    p = v * (1.0 - s);
-    q = v * (1.0 - s * f);
-    t = v * (1.0 - s * (1.0 - f));
-
-    //switch(i)
-    if(i == 0)
-    {
-        r = v;
-        g = t;
-        b = p;
-    }
-    else if(i == 1)
-    {
-        r = q;
-        g = v;
-        b = p;
-    }
-    else if(i == 2)
-    {
-        r = p;
-        g = v;
-        b = t;
-    }
-    else if(i == 3)
-    {
-        r = p;
-        g = q;
-        b = v;
-    }
-    else if(i == 4)
-    {
-        r = t;
-        g = p;
-        b = v;
-    }
-    else // i == 5
-    {
-        r = v;
-        g = p;
-        b = q;
-    }
-    return g;
-}
-
-
-float convertZToB(float z)
-{
-    float h, s, v;
-    float f, p, q, t;
-    float r,g,b;
-    int i;
-
-    //ok so first we need to map the z value to a number of degrees
-    //
-    //then with that number of degrees, we need to reduce that to
-    //0 ->360
-    //
-    //then, we need to map this to an RGB value with the color
-    //conversion formulas
-
-    s = 0.9; v = 0.9;
-
-    float dpz= maxZ - minZ;
-    float degreesPerZ = 630.0 / dpz;
-
-    float hueDegrees = z * degreesPerZ + 90.0;
-
-    //limit to 0->360
-    hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
-
-    h = hueDegrees;
-    h /= 60.0;
-    i = int(floor(h));
-    f = h - float(i);
-    p = v * (1.0 - s);
-    q = v * (1.0 - s * f);
-    t = v * (1.0 - s * (1.0 - f));
-
-    //switch(i)
-    if(i == 0)
-    {
-        r = v;
-        g = t;
-        b = p;
-    }
-    else if(i == 1)
-    {
-        r = q;
-        g = v;
-        b = p;
-    }
-    else if(i == 2)
-    {
-        r = p;
-        g = v;
-        b = t;
-    }
-    else if(i == 3)
-    {
-        r = p;
-        g = q;
-        b = v;
-    }
-    else if(i == 4)
-    {
-        r = t;
-        g = p;
-        b = v;
-    }
-    else // i == 5
-    {
-        r = v;
-        g = p;
-        b = q;
-    }
-    return b;
-}
-
-
-float convertZToR(float z)
-{
-    float h, s, v;
-    float f, p, q, t;
-    float r,g,b;
-    int i;
-
-    //ok so first we need to map the z value to a number of degrees
-    //
-    //then with that number of degrees, we need to reduce that to
-    //0 ->360
-    //
-    //then, we need to map this to an RGB value with the color
-    //conversion formulas
-
-    s = 0.9; v = 0.9;
-
-    float dpz= maxZ - minZ;
-    float degreesPerZ = 630.0 / dpz;
-
-    float hueDegrees = z * degreesPerZ + 90.0;
-
-    //limit to 0->360
-    hueDegrees -= 360.0 * floor(hueDegrees / 360.0);
-
-    h = hueDegrees;
-    h /= 60.0;
-    i = int(floor(h));
-    f = h - float(i);
-    p = v * (1.0 - s);
-    q = v * (1.0 - s * f);
-    t = v * (1.0 - s * (1.0 - f));
-
-    //switch(i)
-    if(i == 0)
-    {
-        r = v;
-        g = t;
-        b = p;
-    }
-    else if(i == 1)
-    {
-        r = q;
-        g = v;
-        b = p;
-    }
-    else if(i == 2)
-    {
-        r = p;
-        g = v;
-        b = t;
-    }
-    else if(i == 3)
-    {
-        r = p;
-        g = q;
-        b = v;
-    }
-    else if(i == 4)
-    {
-        r = t;
-        g = p;
-        b = v;
-    }
-    else // i == 5
-    {
-        r = v;
-        g = p;
-        b = q;
-    }
-    return r;
-}
-
 
 void main(void) {
     float x, y, z;
@@ -304,28 +87,32 @@ void main(void) {
     //rescale these to be from -minX to +maxX
     x = ((aVertexPosition[0] + 1.0)/(2.0)) * (maxX - minX) + minX;
     y = ((aVertexPosition[1] + 1.0)/(2.0)) * (maxY - minY) + minY;
-    z = 0.0;
 
-    //z = pow(x,2.0) + pow(y,2.0);
+    //*** Our generated equation string below:
+    //equationString
     z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time)))) + 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0));
+    //equationStringEnd
+
     //z = 0.3 * ((x * sin(sqrt(abs(x - (y + 9.0)))) - (y + 9.0) * sin(sqrt(abs(y + 0.5 * x + 9.0))));
     //z = (pow(x,2.0)/pow(max(maxX,abs(minX)),2.0))*(maxZ-minZ)*0.5 + (pow(y,2.0)/pow(max(maxY,abs(minY)),2.0))*(maxZ-minZ)*0.5 + minZ;
 
-    float r,g,b;
-
     //scale the z so it fits within our window
     float zScaled = ((z - minZ)/(maxZ - minZ)) * 2.0 + -1.0;
-
-    r = convertZToR(zScaled);
-    g = convertZToG(zScaled);
-    b = convertZToB(zScaled);
 
     vec4 position = vec4(aVertexPosition[0],aVertexPosition[1],zScaled,1.0);
 
     gl_Position = pMatrix * mvMatrix * position;
 
     vPos = position;
-    vColor = vec4(r,g,b,0.9);
+
+    //this has to map each between 0 and 1 based on the min/max stuff
+    //we switch from grid to window calculations here!
+
+    //** Our generated variable assignment below:
+    //varDataAssignment
+    varData = vec3((x - minX) / (maxX - minX), (y - minY) / (maxY - minY), 0.0);
+    //varDataAssignmentEnd
+
     vminZ = minZ;
     vmaxZ = maxZ;
 }
@@ -334,11 +121,13 @@ void main(void) {
 <script id="shader-box-fs" type="x-shader/x-fragment">
 precision mediump float;
 
-varying vec4 vColor;
 varying vec4 vPos;
+varying vec3 varData;
+
 varying float vminZ;
 varying float vmaxZ;
 
+//hueStart
 float convertZToG(float z)
 {
     float h, s, v;
@@ -559,22 +348,21 @@ float convertZToR(float z)
     }
     return r;
 }
+//hueEnd
 
 void main(void) {
+
+    //hueStart
     float z = (vPos[2] + 1.0) * 2.0;
     float r,g,b;
-
     r = convertZToR(z);
     g = convertZToG(z);
     b = convertZToB(z);
-
     gl_FragColor = vec4(r,g,b,1);
-    //cool part 1
-    //to show how optimum is selected out!!!!!
-    gl_FragColor = vec4(vPos[0] * 0.5 + 0.5,vPos[1] * 0.5 + 0.5,0,1);
+    //hueEnd
 
-    //gl_FragColor = vec4(z,0,0,1);
-    //gl_FragColor = vColor;
+    //this is always the same, we fill with 0s if there isnt room
+    gl_FragColor = vec4(varData[0],varData[1],varData[2],1.0);
 }
 
 </script>
