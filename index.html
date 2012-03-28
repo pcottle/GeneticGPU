@@ -91,7 +91,7 @@ void main(void) {
     //*** Our generated equation string below:
     //equationString
     z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time)))) + 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0));
-    z = 0.25 * (pow(x,2.0) + pow(y,2.0) + 2.0*cos(time));
+    //z = 0.25 * (pow(x,2.0) + pow(y,2.0) + 2.0*cos(time));
     //equationStringEnd
 
     //z = 0.3 * ((x * sin(sqrt(abs(x - (y + 9.0)))) - (y + 9.0) * sin(sqrt(abs(y + 0.5 * x + 9.0))));
@@ -596,7 +596,7 @@ $j(document).ready(function(){
     $j(document).bind('mousewheel',onMouseWheel);
     $j(document).bind('DOMMouseScroll',onMouseWheel);
 
-    setTimeout("asd=true;gl.viewportHeight=100;gl.viewportWidth=100;",4000);
+    setTimeout("asd=true;gl.viewportHeight=300;gl.viewportWidth=300;",4000);
 });
 
 </script>

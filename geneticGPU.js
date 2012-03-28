@@ -357,18 +357,32 @@ var Solver = function(problem,shaders,extractors) {
     //ok lets make a frame buffer for our own solving reasons
     this.frameBuffer = gl.createFramebuffer();
     //default frame buffer sizes (framebuffer sizes)
-    //bind the framebuffer and then set the size, not sure if order matters here or not
-    gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
-    this.frameBuffer.width = 100;
-    this.frameBuffer.height = 100;
+    this.frameBuffer.width = 300;
+    this.frameBuffer.height = 300;
 
-    //also create a renderbuffer, I'm pretty sure you need this for our desired operations
+    this.texture = gl.createTexture();
     this.renderBuffer = gl.createRenderbuffer();
+
+    //default frame buffer sizes (framebuffer sizes)
+    //bind the framebuffer for the following operations
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
+
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+    gl.generateMipmap(gl.TEXTURE_2D);
+
+    //set it to rgba
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.frameBuffer.width, this.frameBuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    //now bind renderbuffer and do storage
     gl.bindRenderbuffer(gl.RENDERBUFFER,this.renderBuffer);
-    //allocate storage and attach the storage...?
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.frameBuffer.width, this.frameBuffer.height);
+
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderBuffer);
 
+    gl.bindTexture(gl.TEXTURE_2D,null);
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 };
@@ -449,6 +463,7 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     //switch back from the frame buffer
     if(shouldSwitchToBuffer)
     {
+        dumpScreenShot();
         gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     }
 
@@ -949,14 +964,20 @@ function drawScene() {
 
 function drawScene2() {
 
-        cameraUpdates = {
+    cameraUpdates = {
         'pMatrix':{type:'4fm','val':pMatrix},
         'mvMatrix':{type:'4fm','val':mvMatrix},
     };
 
     var results = solver.solveForMin(null,true);
-    dumpScreenShot();
-    var pos = results.minPos;
+
+    var thisPos = results.minPos;
+    //absolute hack while still debugging
+    if(thisPos.x > -2.5)
+    {
+        pos = thisPos;
+    }
+
     var extendZ = results.extendZ;
 
     cameraPerspectiveClear();
@@ -986,7 +1007,7 @@ function drawScene2() {
 }
 
 var asd = false;
-var pos = {'xOrig':0,'yOrig':0};
+var pos = {'xOrig':0,'yOrig':0,'zOrig':0};
 
 function cameraPerspectiveClear() {
 
