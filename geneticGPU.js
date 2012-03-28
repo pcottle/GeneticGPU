@@ -23,8 +23,8 @@ var scaleAmount = 0.04;
 var ourScaleTween = null;
 var scaleVariablesForTween = null;
 
-var globalYrotate = 0;
-var globalXrotate = -90;
+var globalYrotate = 10;
+var globalXrotate = -80;
 var angleLimit = 90;
 var rotateOn = false;
 
