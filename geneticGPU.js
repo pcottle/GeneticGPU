@@ -359,13 +359,15 @@ var Solver = function(problem,shaders,extractors) {
     //default frame buffer sizes (framebuffer sizes)
     //bind the framebuffer and then set the size, not sure if order matters here or not
     gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
-    this.frameBuffer.width = 300;
-    this.frameBuffer.height = 200;
+    this.frameBuffer.width = 100;
+    this.frameBuffer.height = 100;
 
     //also create a renderbuffer, I'm pretty sure you need this for our desired operations
     this.renderBuffer = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER,this.renderBuffer);
+    //allocate storage and attach the storage...?
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.frameBuffer.width, this.frameBuffer.height);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderBuffer);
 
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
@@ -375,7 +377,6 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
 
     if(shouldSwitchToBuffer)
     {
-        console.log("switching to my own frame buffer");
         //switch to the frame buffer that's hidden! so we can do our drawing for solving here
         gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
 
@@ -948,22 +949,18 @@ function drawScene() {
 
 function drawScene2() {
 
-    cameraPerspectiveClear();
-    translateAndRotate();
-
-    cameraUpdates = {
+        cameraUpdates = {
         'pMatrix':{type:'4fm','val':pMatrix},
         'mvMatrix':{type:'4fm','val':mvMatrix},
     };
 
-    //here, we draw the grid with our shader object
-    blendShaderObj.switchToShader();
-    setObjUniforms();
-    blendShaderObj.drawGrid(cameraUpdates);
-
-    var results = solver.solveForMin(null,false);
+    var results = solver.solveForMin(null,true);
+    dumpScreenShot();
     var pos = results.minPos;
     var extendZ = results.extendZ;
+
+    cameraPerspectiveClear();
+    translateAndRotate();
 
     ballUpdates = {
         'pMatrix':{type:'4fm','val':pMatrix},
@@ -973,10 +970,15 @@ function drawScene2() {
         'zPos':{type:'f','val':pos.zOrig},
     };
 
+    //here, we draw the grid with our shader object
+    blendShaderObj.switchToShader();
+    setObjUniforms();
+    blendShaderObj.drawGrid(cameraUpdates);
+
     ballShaderObj.drawGrid(ballUpdates);
 
     var asd = new Date();
-    if(asd.getTime() % 33 == 0)
+    if(asd.getTime() % 123 == 0)
     {
         console.log("min pos is", pos);
     }
@@ -1328,7 +1330,7 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
     }
 
     //this line should never execute unless we are on a completely empty framebuffer
-    console.warn("found nothing on frame buffer!");
+    //console.warn("found nothing on frame buffer!");
     return {'r':0,'g':0,'b':0,'noneFound':true,'yHeight':0.5};
 };
 var minXpixel; var minYpixel;
