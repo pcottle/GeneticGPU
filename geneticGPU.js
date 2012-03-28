@@ -52,8 +52,8 @@ var SearchWindow = function(vars) {
         var min = "min" + this.vars[i].toUpperCase();
         var max = "max" + this.vars[i].toUpperCase();
 
-        this.windowAttributes[min] = {type:'f', val: -5};
-        this.windowAttributes[max] = {type:'f', val: 5};
+        this.windowAttributes[min] = {type:'f', val: -3};
+        this.windowAttributes[max] = {type:'f', val: 3};
 
         this.minmaxList.push(min);
         this.minmaxList.push(max);
@@ -357,17 +357,30 @@ var Solver = function(problem,shaders,extractors) {
     //ok lets make a frame buffer for our own solving reasons
     this.frameBuffer = gl.createFramebuffer();
     //default frame buffer sizes (framebuffer sizes)
+    //bind the framebuffer and then set the size, not sure if order matters here or not
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
     this.frameBuffer.width = 300;
     this.frameBuffer.height = 200;
 
+    //also create a renderbuffer, I'm pretty sure you need this for our desired operations
+    this.renderBuffer = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER,this.renderBuffer);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.frameBuffer.width, this.frameBuffer.height);
+
+    gl.bindRenderbuffer(gl.RENDERBUFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 };
 
 Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuffer) {
 
     if(shouldSwitchToBuffer)
     {
+        console.log("switching to my own frame buffer");
         //switch to the frame buffer that's hidden! so we can do our drawing for solving here
         gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
+
+        gl.viewport(0,0, this.frameBuffer.width, this.frameBuffer.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
 
     //if the problem wants time in order to drive the simulation, go ahead and buffer it onto all the shaders i contain
@@ -385,8 +398,6 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     {
         searchWindowAttributes = this.baseSearchWindow.windowAttributes;
     }
-    console.log("using this search window");
-    console.log(searchWindowAttributes);
 
     //ok so essentially loop through our shaders,
     //draw each shader, get the RGB at the min,
@@ -396,14 +407,24 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     for(var passIndex = 0; passIndex < this.shaders.length; passIndex++)
     {
         //call CLEAR on the frame buffer between each draw
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if(!shouldSwitchToBuffer)
+        {
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        }
 
         //draws the surface with the right coloring
         this.shaders[passIndex].drawGrid();
         
         //get the RGB on the current frame buffer for this surface
         //no arguments for now but we will pass in the dimensions of the frame buffer
-        var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
+        if(shouldSwitchToBuffer)
+        {
+            var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
+        }
+        else
+        {
+            var colors = findRGBofBottomFrameBuffer();
+        }
 
         //console.log("found these colors at the min...");
         //console.log(colors);
@@ -420,8 +441,8 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     //extend out the z coordinate if the minimum z we got was somewhat close to the bottom of the frame buffer
     var shouldExtendZ = colors.yHeight < 0.2;
 
-    //dimensions here!!! of the framebuffer
-    var estZ = (colors.yHeight / this.frameBuffer.height) * 2 + -1;
+    var estZ = colors.yHeight * 2 + -1;
+
     totalMinPosition.zOrig = estZ;
 
     //switch back from the frame buffer
@@ -429,7 +450,6 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     {
         gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     }
-
 
     //return the results
     return {'minPos':totalMinPosition,'extendZ':shouldExtendZ};
@@ -556,6 +576,8 @@ myShader.prototype.updateAttributes = function(attributes) {
 };
 
 myShader.prototype.updateTime = function(timeVal) {
+    this.switchToShader();
+
     this.uniformAttributes['time'].val = timeVal;
 
     gl.uniform1f(this.shaderProgram.timelocation,timeVal); 
@@ -939,7 +961,7 @@ function drawScene2() {
     setObjUniforms();
     blendShaderObj.drawGrid(cameraUpdates);
 
-    var results = solver.solveForMin();
+    var results = solver.solveForMin(null,false);
     var pos = results.minPos;
     var extendZ = results.extendZ;
 
@@ -952,6 +974,13 @@ function drawScene2() {
     };
 
     ballShaderObj.drawGrid(ballUpdates);
+
+    var asd = new Date();
+    if(asd.getTime() % 33 == 0)
+    {
+        console.log("min pos is", pos);
+    }
+
 }
 
 var asd = false;
@@ -1299,7 +1328,8 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
     }
 
     //this line should never execute unless we are on a completely empty framebuffer
-    return {'r':0,'g':0,'b':0,'noneFound':true};
+    console.warn("found nothing on frame buffer!");
+    return {'r':0,'g':0,'b':0,'noneFound':true,'yHeight':0.5};
 };
 var minXpixel; var minYpixel;
 
