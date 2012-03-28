@@ -52,8 +52,8 @@ var SearchWindow = function(vars) {
         var min = "min" + this.vars[i].toUpperCase();
         var max = "max" + this.vars[i].toUpperCase();
 
-        this.windowAttributes[min] = {type:'f', val: -1};
-        this.windowAttributes[max] = {type:'f', val: 1};
+        this.windowAttributes[min] = {type:'f', val: -5};
+        this.windowAttributes[max] = {type:'f', val: 5};
 
         this.minmaxList.push(min);
         this.minmaxList.push(max);
@@ -80,8 +80,19 @@ var Problem = function(equationString) {
     //ok so we have a valid equation
     //get all the variables besides z
     this.equationString = equationString;
+    var es = equationString;
 
-    //first replace all the "pow" operations and such
+    //first see if "time" is there, aka we want to use time
+    //to drive the simulation in some way (but its not a dimensional variable to solve for)
+    var timeIsThere = false;
+
+    if(es.match(/time/))
+    {
+        timeIsThere = true;
+    }
+
+    //first replace all the "pow" operations and such. this will also remove time because that's a 
+    //multicharacter operation
     var es = equationString;
     es = es.replace(/([a-zA-Z][a-zA-Z]+)/g,"");
 
@@ -91,6 +102,7 @@ var Problem = function(equationString) {
     //make variables unique! we will abuse jquery here
     variables = $j.unique(variables);
 
+    this.wantsTime = timeIsThere;
     this.vars = variables;
     this.variables = variables;
     this.numVars = variables.length;
@@ -110,6 +122,7 @@ Problem.prototype.validateEquationString = function(equationString) {
         return null;
     }
 
+    //remove all valid floats
     es = es.replace(/(\d+)\.(\d+)/g,"");
 
     //now see if there are digits left
@@ -118,6 +131,7 @@ Problem.prototype.validateEquationString = function(equationString) {
         alert("You need to make all numbers floats for the Shader Language. These numbers need a .0 after them: " + es);
         return null;
     }
+
     //probably valid, still need to compile it of course though but this catches the user mistakes
     return true;
 };
@@ -232,31 +246,39 @@ shaderTemplateRenderer.prototype.buildExtractorForVariables = function(theseVars
     }
 
     var extractor = function(colors,searchWindow) {
-        console.log("the r variable", theseVars[0], " the g variable", theseVars[1], "and the b variable", theseVars[2]);
-
         var rRange = searchWindow[maxR].val - searchWindow[minR].val;
         var rPos = (colors.r / 255.0) * rRange + searchWindow[minR].val;
 
-        var gPos = null; var bPos = null;
+        //we also need the original places in the grid in order to do graphical display of the minimum
+        var rPosOrig = (colors.r / 255.0) * 2 - 1;
+
+        var gPos = null; var bPos = null; var gPosOrig = null; var bPosOrig = null;
         if(minG)
         {
             var gRange = searchWindow[maxG].val - searchWindow[minG].val;
             gPos = (colors.g / 255.0) * gRange + searchWindow[minG].val;
+            gPosOrig = (colors.g / 255.0) * 2 - 1;
         }
         if(minB)
         {
             var bRange = searchWindow[maxB].val - searchWindow[minB].val;
             bPos = (colors.b / 255.0) * bRange + searchWindow[minB].val;
+            bPosOrig = (colors.b / 255.0) * 2 - 1;
         }
+
         var toReturn = {};
         toReturn[theseVars[0]] = rPos;
+        toReturn[theseVars[0] + "Orig"] = rPosOrig;
+
         if(gPos)
         {
             toReturn[theseVars[1]] = gPos;
+            toReturn[theseVars[1] + "Orig"] = gPosOrig;
         }
         if(bPos)
         {
             toReturn[theseVars[2]] = bPos;
+            toReturn[theseVars[2] + "Orig"] = bPosOrig;
         }
         return toReturn;
     };
@@ -302,16 +324,14 @@ shaderTemplateRenderer.prototype.buildShaderForVariables = function(theseVars) {
         varDataString = varDataString.replace("%var" + String(i),scaled);
     }
 
-    //equation string
-    vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/,this.problem.equationString);
+    //equation string replace
+    //vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/,this.problem.equationString);
 
     //vardata assignment string
     vShaderSrc = vShaderSrc.replace(/\/\/varDataAssignment[\s\S]*?\/\/varDataAssignmentEnd/,varDataString);
 
     //now that we have our sources, go compile our shader object with these sources
-    //var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.searchWindow.windowAttributes,false);
-    var shaderObj = new myShader($j("#shader-box-vs"),$j("#shader-box-fs"),this.problem.searchWindow.windowAttributes,false);
-    //shaderObj = blendShaderObj;
+    var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.searchWindow.windowAttributes,false);
 
     console.log("Generated Shader source for vertex!");
     //console.log('shadersrc':vShaderSrc});
@@ -334,11 +354,32 @@ var Solver = function(problem,shaders,extractors) {
     this.shaders = shaders;
     this.extractors = extractors;
 
-    //TODO: add your own frame buffer here!!!
+    //ok lets make a frame buffer for our own solving reasons
+    this.frameBuffer = gl.createFramebuffer();
+    //default frame buffer sizes (framebuffer sizes)
+    this.frameBuffer.width = 300;
+    this.frameBuffer.height = 200;
+
 };
 
-Solver.prototype.solveForMin = function(searchWindowAttributes) {
-    //TODO: switch to the frame buffer that's hidden!
+Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuffer) {
+
+    if(shouldSwitchToBuffer)
+    {
+        //switch to the frame buffer that's hidden! so we can do our drawing for solving here
+        gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
+    }
+
+    //if the problem wants time in order to drive the simulation, go ahead and buffer it onto all the shaders i contain
+    if(this.problem.wantsTime)
+    {
+        var now = new Date();
+        var deltaT = (now.getTime() - startTime) / 1000.0;
+        for(var i = 0; i < this.shaders.length; i++)
+        {
+            this.shaders[i].updateTime(deltaT);
+        }
+    }
 
     if(!searchWindowAttributes)
     {
@@ -354,18 +395,18 @@ Solver.prototype.solveForMin = function(searchWindowAttributes) {
 
     for(var passIndex = 0; passIndex < this.shaders.length; passIndex++)
     {
-        //TODO: call CLEAR on the frame buffer between each draw
+        //call CLEAR on the frame buffer between each draw
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         //draws the surface with the right coloring
         this.shaders[passIndex].drawGrid();
         
         //get the RGB on the current frame buffer for this surface
-        //TODO: no arguments for now but we will pass in the dimensions of the frame buffer
-        var colors = findRGBofBottomFrameBuffer();
+        //no arguments for now but we will pass in the dimensions of the frame buffer
+        var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
 
-        console.log("found these colors at the min...");
-        console.log(colors);
+        //console.log("found these colors at the min...");
+        //console.log(colors);
 
         var thesePositions = this.extractors[passIndex](colors,searchWindowAttributes);
 
@@ -379,6 +420,17 @@ Solver.prototype.solveForMin = function(searchWindowAttributes) {
     //extend out the z coordinate if the minimum z we got was somewhat close to the bottom of the frame buffer
     var shouldExtendZ = colors.yHeight < 0.2;
 
+    //dimensions here!!! of the framebuffer
+    var estZ = (colors.yHeight / this.frameBuffer.height) * 2 + -1;
+    totalMinPosition.zOrig = estZ;
+
+    //switch back from the frame buffer
+    if(shouldSwitchToBuffer)
+    {
+        gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    }
+
+
     //return the results
     return {'minPos':totalMinPosition,'extendZ':shouldExtendZ};
 }
@@ -388,6 +440,9 @@ Solver.prototype.solveForMin = function(searchWindowAttributes) {
 var myShader = function(vShaderSrc,fShaderSrc,uniformAttributes,isBall) {
     this.vShaderSrc = getSource(vShaderSrc);
     this.fShaderSrc = getSource(fShaderSrc);
+
+    //force it to include time as well, even if its not explicity in the equation
+    uniformAttributes.time = {type:'f','val':0};
 
     this.uniformAttributes = uniformAttributes;
     this.shaderProgram = null;
@@ -432,6 +487,7 @@ myShader.prototype.buildAttributes = function() {
 
     if(this.isBall)
     {
+        //we also need color for the ball
         this.shaderProgram.vertexColorAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexColor");
         gl.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
     }
@@ -500,7 +556,9 @@ myShader.prototype.updateAttributes = function(attributes) {
 };
 
 myShader.prototype.updateTime = function(timeVal) {
-    this.uniformAttributes['time'] = timeVal;
+    this.uniformAttributes['time'].val = timeVal;
+
+    gl.uniform1f(this.shaderProgram.timelocation,timeVal); 
 };
 
 myShader.prototype.bufferUniforms = function() {
@@ -580,7 +638,6 @@ function initShaders() {
 }
 
 var otherFramebuffer;
-var otherTexture;
 
 function initOtherFrameBuffer() {
     //make frame buffer
@@ -590,12 +647,11 @@ function initOtherFrameBuffer() {
     otherFramebuffer.height = $j(window).height();
 
     //something with a render buffer?
-    var renderbuffer = gl.createRenderbuffer();
-    gl.bindRenderbuffer(gl.RENDERBUFFER,renderbuffer);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, otherFramebuffer.width, otherFramebuffer.height);
+    //var renderbuffer = gl.createRenderbuffer();
+    //gl.bindRenderbuffer(gl.RENDERBUFFER,renderbuffer);
+    //gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, otherFramebuffer.width, otherFramebuffer.height);
 
     //reset back to default
-    gl.bindTexture(gl.TEXTURE_2D,null);
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
@@ -845,7 +901,7 @@ function drawScene() {
     setObjUniforms();
     blendShaderObj.drawGrid(cameraUpdates);
 
-        //go find the minimum
+    //go find the minimum
     if(asd)
     {
         var thisPos = findMinimumOnFrameBuffer();
@@ -864,6 +920,36 @@ function drawScene() {
         'zPos':{type:'f','val':pos.zOrig},
     };
 
+
+    ballShaderObj.drawGrid(ballUpdates);
+}
+
+function drawScene2() {
+
+    cameraPerspectiveClear();
+    translateAndRotate();
+
+    cameraUpdates = {
+        'pMatrix':{type:'4fm','val':pMatrix},
+        'mvMatrix':{type:'4fm','val':mvMatrix},
+    };
+
+    //here, we draw the grid with our shader object
+    blendShaderObj.switchToShader();
+    setObjUniforms();
+    blendShaderObj.drawGrid(cameraUpdates);
+
+    var results = solver.solveForMin();
+    var pos = results.minPos;
+    var extendZ = results.extendZ;
+
+    ballUpdates = {
+        'pMatrix':{type:'4fm','val':pMatrix},
+        'mvMatrix':{type:'4fm','val':mvMatrix},
+        'xPos':{type:'f','val':pos.xOrig},
+        'yPos':{type:'f','val':pos.yOrig},
+        'zPos':{type:'f','val':pos.zOrig},
+    };
 
     ballShaderObj.drawGrid(ballUpdates);
 }
