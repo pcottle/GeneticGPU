@@ -209,7 +209,7 @@ shaderTemplateRenderer.prototype.buildShaders = function() {
 
     while(varsToSolve.length > 0)
     {
-        var theseVars = varsToSolve.splice(0,3);
+        var theseVars = varsToSolve.splice(0,1);
 
         console.log("building shader for these vars");
         console.log(theseVars);
@@ -409,6 +409,7 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
         }
     }
 
+    //if no specific search window specified, use the base search window for this problem
     if(!searchWindowAttributes)
     {
         searchWindowAttributes = this.baseSearchWindow.windowAttributes;
@@ -422,19 +423,23 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     for(var passIndex = 0; passIndex < this.shaders.length; passIndex++)
     {
         //call CLEAR on the frame buffer between each draw
-        if(!shouldSwitchToBuffer)
-        {
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        }
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         //draws the surface with the right coloring
         this.shaders[passIndex].drawGrid();
         
         //get the RGB on the current frame buffer for this surface
-        //no arguments for now but we will pass in the dimensions of the frame buffer
         if(shouldSwitchToBuffer)
         {
             var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
+
+            //interactive mode
+            dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex);
+            //also go color in the area we found
+            var cvs = $j('#screenshot' + String(passIndex))[0];
+            var ctx = cvs.getContext('2d');
+            ctx.fillStyle = "rgb(255,255,255)";
+            ctx.fillRect(colors.col - 2,this.frameBuffer.height - colors.row - 2,4,4);
         }
         else
         {
@@ -463,7 +468,6 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     //switch back from the frame buffer
     if(shouldSwitchToBuffer)
     {
-        dumpScreenShot();
         gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     }
 
@@ -938,28 +942,6 @@ function drawScene() {
     blendShaderObj.switchToShader();
     setObjUniforms();
     blendShaderObj.drawGrid(cameraUpdates);
-
-    //go find the minimum
-    if(asd)
-    {
-        var thisPos = findMinimumOnFrameBuffer();
-        if(thisPos.x > -2.5)
-        {
-            pos = thisPos;
-        }
-        //console.log("min position x:",pos.x," y:",pos.y, " zORIGINAL:",pos.zOrig);
-    }
-
-    ballUpdates = {
-        'pMatrix':{type:'4fm','val':pMatrix},
-        'mvMatrix':{type:'4fm','val':mvMatrix},
-        'xPos':{type:'f','val':pos.xOrig},
-        'yPos':{type:'f','val':pos.yOrig},
-        'zPos':{type:'f','val':pos.zOrig},
-    };
-
-
-    ballShaderObj.drawGrid(ballUpdates);
 }
 
 function drawScene2() {
@@ -971,13 +953,8 @@ function drawScene2() {
 
     var results = solver.solveForMin(null,true);
 
-    var thisPos = results.minPos;
-    //absolute hack while still debugging
-    if(thisPos.x > -2.5)
-    {
-        pos = thisPos;
-    }
-
+    var pos = results.minPos;
+    //TODO extend z if necessary
     var extendZ = results.extendZ;
 
     cameraPerspectiveClear();
@@ -998,8 +975,8 @@ function drawScene2() {
 
     ballShaderObj.drawGrid(ballUpdates);
 
-    var asd = new Date();
-    if(asd.getTime() % 123 == 0)
+    var rightnow = new Date();
+    if(rightnow.getTime() % 123 == 0)
     {
         console.log("min pos is", pos);
     }
@@ -1198,31 +1175,35 @@ function getPixelData(x,y,width,height)
     return pixelValues;
 }
 
-function dumpScreenShot()
+function dumpScreenShot(height,width,shaderNum)
 {
-    //get all the pixels of the viewport
-    var height = gl.viewportHeight;
-    var width = gl.viewportWidth;
+    if(!height)
+    {
+        height = gl.viewportHeight;
+        width = gl.viewportWidth;
+        shaderNum = 0;
+    }
 
+    //get the pixel data from the current framebuffer
     var pixels = getPixelData(0,0,width,height);
 
     //get or make the snapshot canvas
-    var cvs = document.getElementById('screenShotCanvas');
+    var getOrMakeCanvas = function(id) {
+        var cvs= document.getElementById(id);
+        if(!cvs)
+        {
+            cvs = document.createElement('canvas');
+            cvs.id = id;
+            document.getElementById('holder-for-screenshots').appendChild(cvs);
+            $j('#' + id).addClass('screenshotCanvas');
+        }
+        return cvs;
+    };
+    //get or make the snapshot canvas
+    var cvs = getOrMakeCanvas("screenshot" + String(shaderNum));
 
-    if(!cvs)
-    {
-        cvs = document.createElement('canvas');
-        cvs.id = 'screenShotCanvas';
-        document.getElementsByTagName('body')[0].appendChild(cvs);
-        cvs = document.getElementById('screenShotCanvas');
-        $j('#screenShotCanvas').css({
-                            'position':'absolute',
-                            'right':'0px',
-                            'top':'0px'});
-    }
-
-    cvs.width = gl.viewportWidth;
-    cvs.height = gl.viewportHeight;
+    cvs.width = width;
+    cvs.height = height;
 
     var ctx2d = cvs.getContext('2d');
     var image = ctx2d.createImageData(cvs.width, cvs.height);
@@ -1334,8 +1315,8 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
                 {
                     xRight++;
                 }
-                //now get the "middle"
-                var xMiddle = Math.round(xRight*0.5 + xLeft*0.5);
+                //now get the "middle." We use floor because sometimes we overshoot
+                var xMiddle = Math.floor(xRight*0.5 + xLeft*0.5);
 
                 var rIndex = converter(xMiddle,y);
                 
@@ -1345,7 +1326,14 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
 
                 //return these optimums and an estimate for the z
                 var yHeight01 = (y / heightOfBuffer);
-                return {'r':r,'g':g,'b':b,'yHeight':yHeight01};
+                return {
+                    'r':r,
+                    'g':g,
+                    'b':b,
+                    'yHeight':yHeight01,
+                    'row':y,
+                    'col':xMiddle
+                };
             }
         }
     }
