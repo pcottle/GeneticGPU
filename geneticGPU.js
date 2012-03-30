@@ -215,7 +215,7 @@ shaderTemplateRenderer.prototype.buildShaders = function() {
         console.log(theseVars);
 
         //the shader will render this surface with these variables as the rgb
-        var thisShader = this.buildShaderForVariables(theseVars);
+        var thisShader = this.buildUniformShaderForVariables(theseVars);
         //the extractor will take in RGB / a window and return the estimated variable value. it uses closures
         var thisExtractor = this.buildExtractorForVariables(theseVars);
 
@@ -286,10 +286,12 @@ shaderTemplateRenderer.prototype.buildExtractorForVariables = function(theseVars
     return extractor;
 };
 
-shaderTemplateRenderer.prototype.buildShaderForVariables = function(theseVars) {
+shaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(theseVars) {
+
     //first copy the variable array
     theseVars = theseVars.slice(0);
-    //first stick in zeros where there is no variable
+
+    //stick in zeros where there is no variable
     if(theseVars.length == 1) { theseVars = theseVars.concat(["0.0","0.0"]); }
     if(theseVars.length == 2) { theseVars.push("0.0"); }
 
@@ -299,11 +301,16 @@ shaderTemplateRenderer.prototype.buildShaderForVariables = function(theseVars) {
         throw new Error("what! something is wrong with variable length and array pushing");
     }
 
-    //building and compiling a shader requires two things. first, we must replace the equation line with the given equationString. then, we must replace
-    //the varying vec3 varData with our given variables. 
+    //building and compiling a shader requires a few things. first, we must replace the equation line with the given equationString. then, we must replace
+    //the varying vec3 varData with our given variables in the correctly scaled manner. Finally, we have to declare all the variables the user wants as floats
 
     var vShaderSrc = this.vertexShaderTemplate;
     var fShaderSrc = this.fragShaderTemplate;
+
+    //the declaration as floats
+    var varDeclarationString = "float " + this.problem.vars.join(',') + ';';
+    //replace it
+    vShaderSrc = vShaderSrc.replace(/\/\/varDeclaration[\s\S]*?\/\/varDeclarationEnd/,varDeclarationString);
 
     var varDataString = "varData = vec3(%var0,%var1,%var2);\n";
     //insert variable strings
@@ -325,7 +332,7 @@ shaderTemplateRenderer.prototype.buildShaderForVariables = function(theseVars) {
     }
 
     //equation string replace
-    //vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/,this.problem.equationString);
+    vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/,this.problem.equationString);
 
     //vardata assignment string
     vShaderSrc = vShaderSrc.replace(/\/\/varDataAssignment[\s\S]*?\/\/varDataAssignmentEnd/,varDataString);
@@ -1321,12 +1328,17 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
                 var xMiddle = Math.round(xRight*0.5 + xLeft*0.5);
 
                 var rIndex = converter(xMiddle,y);
+
+                if(!anyColorPositive(xMiddle,y))
+                {
+                    console.warn("warning! got an empty pixel after rounding and searching");
+                }
                 
                 var r = allPixels[rIndex];
                 var g = allPixels[rIndex+1];
                 var b = allPixels[rIndex+1];
 
-                //return these optimums and an estimate for the z
+                //return these optimums and the location where we found z
                 var yHeight01 = (y / heightOfBuffer);
                 return {
                     'r':r,
