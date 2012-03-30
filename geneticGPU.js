@@ -1315,8 +1315,10 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
                 {
                     xRight++;
                 }
+                xRight--; //subtract one because we broke the loop condition
+
                 //now get the "middle." We use floor because sometimes we overshoot
-                var xMiddle = Math.floor(xRight*0.5 + xLeft*0.5);
+                var xMiddle = Math.round(xRight*0.5 + xLeft*0.5);
 
                 var rIndex = converter(xMiddle,y);
                 
