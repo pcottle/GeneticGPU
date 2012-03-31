@@ -209,15 +209,15 @@ shaderTemplateRenderer.prototype.buildShaders = function() {
 
     while(varsToSolve.length > 0)
     {
-        var theseVars = varsToSolve.splice(0,1);
+        var varsToExtract = varsToSolve.splice(0,1);
 
         console.log("building shader for these vars");
-        console.log(theseVars);
+        console.log(varsToExtract);
 
         //the shader will render this surface with these variables as the rgb
-        var thisShader = this.buildUniformShaderForVariables(theseVars);
+        var thisShader = this.buildUniformShaderForVariables(varsToExtract);
         //the extractor will take in RGB / a window and return the estimated variable value. it uses closures
-        var thisExtractor = this.buildExtractorForVariables(theseVars);
+        var thisExtractor = this.buildExtractorForVariables(varsToExtract);
 
         //add this shader to our shaders
         this.myShaders.push(thisShader);
@@ -225,24 +225,24 @@ shaderTemplateRenderer.prototype.buildShaders = function() {
     }
 };
 
-shaderTemplateRenderer.prototype.buildExtractorForVariables = function(theseVars) {
+shaderTemplateRenderer.prototype.buildExtractorForVariables = function(varsToExtract) {
     //i know this code is a bit repetitive but I didn't want to further complicate it
 
-    var minR = "min" + theseVars[0].toUpperCase();
-    var maxR = "max" + theseVars[0].toUpperCase();
+    var minR = "min" + varsToExtract[0].toUpperCase();
+    var maxR = "max" + varsToExtract[0].toUpperCase();
 
     var minG = null; var maxG = null;
-    if(theseVars.length > 1)
+    if(varsToExtract.length > 1)
     {
-        minG = "min" + theseVars[1].toUpperCase();
-        maxG = "max" + theseVars[1].toUpperCase();
+        minG = "min" + varsToExtract[1].toUpperCase();
+        maxG = "max" + varsToExtract[1].toUpperCase();
     }
 
     var minB = null; var maxB = null;
-    if(theseVars.length > 2)
+    if(varsToExtract.length > 2)
     {
-        minB = "min" + theseVars[2].toUpperCase();
-        maxB = "max" + theseVars[2].toUpperCase();
+        minB = "min" + varsToExtract[2].toUpperCase();
+        maxB = "max" + varsToExtract[2].toUpperCase();
     }
 
     var extractor = function(colors,searchWindow) {
@@ -267,18 +267,18 @@ shaderTemplateRenderer.prototype.buildExtractorForVariables = function(theseVars
         }
 
         var toReturn = {};
-        toReturn[theseVars[0]] = rPos;
-        toReturn[theseVars[0] + "Orig"] = rPosOrig;
+        toReturn[varsToExtract[0]] = rPos;
+        toReturn[varsToExtract[0] + "Orig"] = rPosOrig;
 
         if(gPos)
         {
-            toReturn[theseVars[1]] = gPos;
-            toReturn[theseVars[1] + "Orig"] = gPosOrig;
+            toReturn[varsToExtract[1]] = gPos;
+            toReturn[varsToExtract[1] + "Orig"] = gPosOrig;
         }
         if(bPos)
         {
-            toReturn[theseVars[2]] = bPos;
-            toReturn[theseVars[2] + "Orig"] = bPosOrig;
+            toReturn[varsToExtract[2]] = bPos;
+            toReturn[varsToExtract[2] + "Orig"] = bPosOrig;
         }
         return toReturn;
     };
@@ -286,23 +286,25 @@ shaderTemplateRenderer.prototype.buildExtractorForVariables = function(theseVars
     return extractor;
 };
 
-shaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(theseVars) {
+shaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsToExtract) {
 
     //first copy the variable array
-    theseVars = theseVars.slice(0);
+    varsToExtract = varsToExtract.slice(0);
 
     //stick in zeros where there is no variable
-    if(theseVars.length == 1) { theseVars = theseVars.concat(["0.0","0.0"]); }
-    if(theseVars.length == 2) { theseVars.push("0.0"); }
+    if(varsToExtract.length == 1) { varsToExtract = varsToExtract.concat(["0.0","0.0"]); }
+    if(varsToExtract.length == 2) { varsToExtract.push("0.0"); }
 
-    if(theseVars.length != 3)
+    if(varsToExtract.length != 3)
     {
-        console.log(theseVars);
+        console.log(varsToExtract);
         throw new Error("what! something is wrong with variable length and array pushing");
     }
 
     //building and compiling a shader requires a few things. first, we must replace the equation line with the given equationString. then, we must replace
-    //the varying vec3 varData with our given variables in the correctly scaled manner. Finally, we have to declare all the variables the user wants as floats
+    //the varying vec3 varData with our given variables in the correctly scaled manner. We have to declare all the variables the user wants as floats
+    //And finally, we must assign the variables that we are sampling. For the two 'sample directions', these will be derived from their grid positions,
+    //but for the fixed variables, it will be a fixed amount.
 
     var vShaderSrc = this.vertexShaderTemplate;
     var fShaderSrc = this.fragShaderTemplate;
@@ -312,39 +314,45 @@ shaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(these
     //replace it
     vShaderSrc = vShaderSrc.replace(/\/\/varDeclaration[\s\S]*?\/\/varDeclarationEnd/,varDeclarationString);
 
+    //the template for the varData assignment
     var varDataString = "varData = vec3(%var0,%var1,%var2);\n";
-    //insert variable strings
+
+    //insert variable strings into the vardata assignment or 0.0 if there's no variable there
     for(var i = 0; i < 3; i++)
     {
-        if(theseVars[i] == "0.0")
+        if(varsToExtract[i] == "0.0")
         {
-            varDataString = varDataString.replace("%var" + String(i),theseVars[i]);
+            varDataString = varDataString.replace("%var" + String(i),varsToExtract[i]);
             continue;
         }
         
         //we need to scale these variables as well
-        var min = "min" + theseVars[i].toUpperCase();
-        var max = "max" + theseVars[i].toUpperCase();
+        var min = "min" + varsToExtract[i].toUpperCase();
+        var max = "max" + varsToExtract[i].toUpperCase();
 
-        var scaled = "(" + theseVars[i] + " - " + min + ")/(" + max + " - " + min + ")";
+        var scaled = "(" + varsToExtract[i] + " - " + min + ")/(" + max + " - " + min + ")";
 
         varDataString = varDataString.replace("%var" + String(i),scaled);
     }
 
+    //vardata assignment string
+    vShaderSrc = vShaderSrc.replace(/\/\/varDataAssignment[\s\S]*?\/\/varDataAssignmentEnd/,varDataString);
+
     //equation string replace
     vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/,this.problem.equationString);
 
-    //vardata assignment string
-    vShaderSrc = vShaderSrc.replace(/\/\/varDataAssignment[\s\S]*?\/\/varDataAssignmentEnd/,varDataString);
+    //here we must also change the variable assignments for the "sample directions." This is some TODO work here,
+    //but for all the sample variables, their value is based on the grid, but for the fixed variables,
+    //its the center (aka min + max / 2.0)
+
+    /****Source code modification done!***/
 
     //now that we have our sources, go compile our shader object with these sources
     var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.searchWindow.windowAttributes,false);
 
     console.log("Generated Shader source for vertex!");
-    //console.log('shadersrc':vShaderSrc});
     console.log(vShaderSrc);
     console.log("Generated shader source for frag!");
-    //console.log({'shadersrc':fShaderSrc});
     console.log(fShaderSrc);
 
     return shaderObj;

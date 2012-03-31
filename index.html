@@ -75,18 +75,21 @@ varying vec3 varData;
 varying float vminZ;
 varying float vmaxZ;
 
-//here we make our own random function on the GPU
+//random number generator
 float myRand(float seed) {
-    float part1, modded, result;
-    int two32;
+    float part1, result;
+    float modded;
+    float twoPow;
 
-    two32 = pow(2,32);
-    part1 = 1664525 * seed + 1013904223;
-    modded = part1 % two32;
+    twoPow = pow(2.0,16.0);
+    part1 = 1664525.0 * seed + 1013904223.0;
+    modded = mod(part1,twoPow);
 
-    result = modded / (two32 - 1);
+    result = modded / (twoPow - 1.0);
+    return result;
 }
 
+//the random sampler
 void main(void) {
 
     //***Our generated variable declarations
@@ -100,8 +103,11 @@ void main(void) {
 
     //the x and y go from -1 to 1 on the master grid, so
     //rescale these to be from -minX to +maxX
-    x = ((aVertexPosition[0] + 1.0)/(2.0)) * (maxX - minX) + minX;
-    y = ((aVertexPosition[1] + 1.0)/(2.0)) * (maxY - minY) + minY;
+
+    //x = myRand(float(aVertexPosition[1]) * 10.0 + float(aVertexPosition[1]) * 100.0 + time) * (maxX - minX) + minX;
+    //y = myRand(float(aVertexPosition[0]) * 10.0 + float(aVertexPosition[0]) * 100.0 + time) * (maxY - minY) + minY;
+    x = myRand(float(aVertexPosition[1]) * 10.0 + float(aVertexPosition[1]) * 100.0) * (maxX - minX) + minX;
+    y = myRand(float(aVertexPosition[0]) * 10.0 + float(aVertexPosition[0]) * 100.0) * (maxY - minY) + minY;
 
     //*** Our generated equation string below:
     //equationString
@@ -156,21 +162,6 @@ varying vec3 varData;
 varying float vminZ;
 varying float vmaxZ;
 
-//here we make our own random function on the GPU
-//TODO: delete this!
-float myRand(float seed) {
-    float part1, result;
-    float modded;
-    float twoPow;
-
-    twoPow = pow(2.0,16.0);
-    part1 = 1664525.0 * seed + 1013904223.0;
-    modded = mod(part1,twoPow);
-
-    result = modded / (twoPow - 1.0);
-    return result;
-}
-
 void main(void) {
 
     //***Our generated variable declarations
@@ -184,14 +175,12 @@ void main(void) {
 
     //the x and y go from -1 to 1 on the master grid, so
     //rescale these to be from -minX to +maxX
+
+    //***Our generated variable assignments
+    //varAssignment
     x = ((aVertexPosition[0] + 1.0)/(2.0)) * (maxX - minX) + minX;
     y = ((aVertexPosition[1] + 1.0)/(2.0)) * (maxY - minY) + minY;
-
-    //TODO: random part
-    //x = myRand(float(aVertexPosition[1]) * 10.0 + float(aVertexPosition[1]) * 100.0 + time) * (maxX - minX) + minX;
-    //y = myRand(float(aVertexPosition[0]) * 10.0 + float(aVertexPosition[0]) * 100.0 + time) * (maxY - minY) + minY;
-    //x = myRand(float(aVertexPosition[1]) * 10.0 + float(aVertexPosition[1]) * 100.0) * (maxX - minX) + minX;
-    //y = myRand(float(aVertexPosition[0]) * 10.0 + float(aVertexPosition[0]) * 100.0) * (maxY - minY) + minY;
+    //varAssignmentEnd
 
     //*** Our generated equation string below:
     //equationString
