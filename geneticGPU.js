@@ -41,7 +41,7 @@ var blendShaderObj = null;
 
 
 /*****************CLASSES*******************/
-var SearchWindow = function(vars) {
+var SearchWindow = function(varsToSample,fixedVars) {
     this.vars = vars;
 
     this.windowAttributes = {};
@@ -101,6 +101,7 @@ var Problem = function(equationString) {
 
     //make variables unique! we will abuse jquery here
     variables = $j.unique(variables);
+    variables = variables.sort();
 
     this.wantsTime = timeIsThere;
     this.vars = variables;
@@ -214,8 +215,11 @@ shaderTemplateRenderer.prototype.buildShaders = function() {
         console.log("building shader for these vars");
         console.log(varsToExtract);
 
+        //TODO: switch this based on the strategy
         //the shader will render this surface with these variables as the rgb
         var thisShader = this.buildUniformShaderForVariables(varsToExtract);
+        var thisShader = this.buildRandomShaderForVariables(varsToExtract);
+
         //the extractor will take in RGB / a window and return the estimated variable value. it uses closures
         var thisExtractor = this.buildExtractorForVariables(varsToExtract);
 
@@ -286,7 +290,7 @@ shaderTemplateRenderer.prototype.buildExtractorForVariables = function(varsToExt
     return extractor;
 };
 
-shaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsToExtract) {
+shaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsToExtract) {
 
     //first copy the variable array
     varsToExtract = varsToExtract.slice(0);
@@ -341,18 +345,107 @@ shaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsT
     //equation string replace
     vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/,this.problem.equationString);
 
+    return {'vShaderSrc':vShaderSrc,'fShaderSrc':fShaderSrc};
+
+};
+
+shaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsToExtract) {
+
+    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract);
+
+    var vShaderSrc = baseSource.vShaderSrc;
+    var fShaderSrc = baseSource.fShaderSrc;
+
     //here we must also change the variable assignments for the "sample directions." This is some TODO work here,
     //but for all the sample variables, their value is based on the grid, but for the fixed variables,
     //its the center (aka min + max / 2.0)
 
+    //TODO: fixed variables. where will we put them? in the problem? need to divide up "all variables" vs "fixed variables" and "sample variables"
+    //at the problem level
+
+    var allVariables = this.problem.vars.slice(0);
+    var varAssignmentBlock = "";
+
+    if(allVariables.length > 2)
+    {
+        throw new Error("we cant sample more than 2 variables at once in 3d space!");
+    }
+
+    for(var i = 0; i < allVariables.length; i++)
+    {
+        var min = "min" + allVariables[i].toUpperCase();
+        var max = "max" + allVariables[i].toUpperCase();
+
+        var line = allVariables[i] + " = ";
+        line = line + "((aVertexPosition[" + String(i) + "] + 1.0)/(2.0))";
+        line = line + " * (" + max + " - " + min + ") + " + min + ";\n";
+
+        varAssignmentBlock = varAssignmentBlock + line;
+    }
+    //replace entire assignment block
+    vShaderSrc = vShaderSrc.replace(/\/\/varAssignment[\s\S]*?\/\/varAssignmentEnd/,varAssignmentBlock); 
+
     /****Source code modification done!***/
 
     //now that we have our sources, go compile our shader object with these sources
+    //TODO: separate window!?!?
     var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.searchWindow.windowAttributes,false);
 
-    console.log("Generated Shader source for vertex!");
+    console.log("Generated Shader uniform source for vertex!");
     console.log(vShaderSrc);
-    console.log("Generated shader source for frag!");
+    console.log("Generated shader uniform source for frag!");
+    console.log(fShaderSrc);
+
+    return shaderObj;
+};
+
+shaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsToExtract) {
+
+    //grab the base source and format the easy stuff
+    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract);
+
+    var vShaderSrc = baseSource.vShaderSrc;
+    var fShaderSrc = baseSource.fShaderSrc;
+
+    //now we must do every single variable assignment with the myRand() function and indexes to spice up the randomness
+    //TODO: insert time here!
+
+    var allVariables = this.problem.vars.slice(0);
+    var varAssignmentBlock = "";
+
+    for(var i = 0; i < allVariables.length; i++)
+    {
+        var min = "min" + allVariables[i].toUpperCase();
+        var max = "max" + allVariables[i].toUpperCase();
+        var iFloat = String(i+1) + ".0";
+
+        var line = allVariables[i] + " = ";
+        //an example of the compiled line is:
+        //x = myRand(pow(i,3.0) + i * i * float(aVertexPosition[0]) * 17 + i * float(aVertexPosition[1]) * 100) * (maxX - minX) + minX;
+        //--or with time--
+        //x = myRand(pow(i + time,3.0) + i * i * time * float(aVertexPosition[0]) * 17 + i * pow(time,2.0) * float(aVertexPosition[1]) * 100) * (maxX - minX) + minX;
+
+        //without time
+        //line = line + "myRand(pow(" + iFloat + ",3.0) + " + iFloat + " * " + iFloat + " * " + "float(aVertexPosition[0]) * 17.0";
+        //line = line + " + " + iFloat + " * float(aVertexPosition[1]) * 100.0) * (" + max + " - " + min + ") + " + min + ";\n";
+
+        //with time
+        line = line + "myRand(pow(" + iFloat + " + time,3.0) + " + iFloat + " * " + iFloat + " * " + " time * float(aVertexPosition[0]) * 17.0";
+        line = line + " + " + iFloat + " * pow(time,2.0) * float(aVertexPosition[1]) * 100.0 + time) * (" + max + " - " + min + ") + " + min + ";\n";
+
+        console.log(line);
+        varAssignmentBlock = varAssignmentBlock + line;
+    }
+    //replace entire assignment block
+    vShaderSrc = vShaderSrc.replace(/\/\/varAssignment[\s\S]*?\/\/varAssignmentEnd/,varAssignmentBlock);
+
+    /***Source code modification done****/
+    //TODO; separate window??
+    var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.searchWindow.windowAttributes,false);
+
+    console.log("Generated Shader random source for vertex!");
+    console.log(vShaderSrc);
+    console.log("Generated shader random source for frag!");
     console.log(fShaderSrc);
 
     return shaderObj;
