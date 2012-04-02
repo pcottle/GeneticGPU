@@ -39,6 +39,39 @@ var startTime = timeOnLoad.getTime();
 
 var blendShaderObj = null;
 
+//hacked up javascript clone object method from stackoverflow. certainly a blemish on the face of JS
+
+function clone(obj) {
+    //3 simple types and null / undefined
+    if(null == obj || "object" != typeof obj) return obj;
+
+    //date
+    if(obj instanceof Date) {
+        var copy = new Date();
+        copy.setTime(obj.getTime());
+        return copy;
+    }
+
+    //array
+    if (obj instanceof Array) {
+        var copy = [];
+        for( var i = 0; i < obj.length; ++i) {
+            copy[i] = clone(obj[i]);
+        }
+        return copy;
+    }
+
+    //object
+    if(obj instanceof Object) {
+        var copy = {};
+        for(var attr in obj) {
+            if(obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+        }
+        return copy;
+    }
+    throw new Error("object type not supported yet!");
+}
+
 
 /*****************CLASSES*******************/
 var SearchWindow = function(sampleVars,fixedVars) {
@@ -85,6 +118,48 @@ var SearchWindow = function(sampleVars,fixedVars) {
 
 SearchWindow.prototype.getAllVariables = function() {
     return this.fixedVars.concat(this.sampleVars);
+};
+
+SearchWindow.prototype.makeZoomWindow = function(centerPosition,percent) {
+    //we will essentially "breed out" the search window here
+
+    //first clone the search window we have right now
+    var copy = clone(this);
+
+    //the centerposition must contain all the sample variables and the z
+    //attribute. it has direct access to the value, NOT the typical "type/val" object
+    for(key in centerPosition)
+    {
+        if(key != 'z' && this.sampleVars.indexOf(key) == -1)
+        {
+            continue;
+        }
+
+        var min = "min" + key.toUpperCase();
+        var max = "max" + key.toUpperCase();
+
+        var maxVal = this.windowAttributes[max].val;
+        var minVal = this.windowAttributes[min].val;
+        var centerVal = centerPosition[key];
+
+        var range = maxVal - minVal;
+        var deltaEachSide = range * percent * 0.5;
+
+        //we could go outside the bounds here by accident, so make sure to
+        //floor these
+        var newMaxVal = centerVal + deltaEachSide;
+        newMaxVal = Math.min(newMaxVal,maxVal);
+
+        var newMinVal = centerVal - deltaEachSide;
+        newMinVal = Math.max(newMinVal,minVal);
+
+        //set these new min / max's in the new window
+        copy.windowAttributes[max].val = newMaxVal;
+        copy.windowAttributes[min].val = newMinVal;
+    }
+
+    //should be done "zooming" on a point from a window
+    return copy;
 };
 
 
@@ -432,8 +507,8 @@ ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsT
 
     var fShaderSrc = this.fragShaderTemplate;
 
-    //here we need all the variables in the problem... do a concat to combine two arrays
-    var allVariables = this.problem.baseSearchWindow.fixedVars.concat(this.problem.baseSearchWindow.sampleVars);
+    //here we need all the variables in the problem...
+    var allVariables = this.problem.baseSearchWindow.getAllVariables();
     //the declaration as floats
     var varDeclarationString = "float " + allVariables.join(',') + ';';
     //replace it
@@ -604,6 +679,8 @@ var Solver = function(problem,uniformObjects,randomObjects) {
     this.baseSearchWindow = problem.baseSearchWindow;
     this.searchWindow2d = problem.searchWindow2d;
 
+    this.zoomWindows = [];
+
     //here the shaders and extractors are tied to each other by index. not exactly elegant by good for now,
     //possible refactor but all the object does is just pass the rgb to the extractor and return.
     this.uniformShaders = uniformObjects.shaders;
@@ -654,10 +731,46 @@ Solver.prototype.solvePass = function() {
         throw new Error("sample vars more than 2 not supported yet!!");
     }
 
-    this.updateTimeOnAll();
+    if(this.zoomWindows.length == 0 || true)
+    {
+
+        this.updateTimeOnAll();
+        this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+
+        var pos = this.easy2dSolve();
+
+        var zoomWindow = this.baseSearchWindow.makeZoomWindow(pos,0.05);
+
+        if(!asd)
+        {
+            this.zoomWindows.push(zoomWindow);
+            console.log(zoomWindow);
+            asd = true;
+        }
+        return pos;
+    }
+    else
+    {
+        var zoomWindow = this.zoomWindows.pop();
+        this.setWindowOnShaders(this.uniformShaders,zoomWindow);
+
+        var pos = this.easy2dSolve();
+
+        return pos;
+    }
+
+    console.log("should never execute");
+
 
     //TODO: extend z on all windows if necessary
     return this.easy2dSolve();
+};
+
+Solver.prototype.setWindowOnShaders = function(shaders,searchWindow) {
+    for(var i = 0; i < shaders.length; i++)
+    {
+        shaders[i].updateAttributes(searchWindow.windowAttributes);
+    }
 };
 
 Solver.prototype.updateTimeOnAll = function() {
@@ -1224,7 +1337,7 @@ function drawScene2() {
 
     var results = solver.solvePass();
 
-    var pos = results.minPos;
+    pos = results.minPos;
 
     cameraPerspectiveClear();
     translateAndRotate();
@@ -1253,7 +1366,6 @@ function drawScene2() {
 }
 
 var asd = false;
-var pos = {'xOrig':0,'yOrig':0,'zOrig':0};
 
 function cameraPerspectiveClear() {
 
