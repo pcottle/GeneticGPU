@@ -56,10 +56,13 @@ var SearchWindow = function(sampleVars,fixedVars) {
     this.minmaxList = [];
     this.fixedList = [];
 
-    for(var i = 0; i < this.sampleVars.length; i++)
+    //include z for window attributes and minmax, but it's not a "sample var"
+    var attributeVars = this.sampleVars.concat(['z']);
+
+    for(var i = 0; i < attributeVars.length; i++)
     {
-        var min = "min" + this.sampleVars[i].toUpperCase();
-        var max = "max" + this.sampleVars[i].toUpperCase();
+        var min = "min" + attributeVars[i].toUpperCase();
+        var max = "max" + attributeVars[i].toUpperCase();
 
         this.windowAttributes[min] = {type:'f', val: -3};
         this.windowAttributes[max] = {type:'f', val: 3};
@@ -156,7 +159,7 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
     //go build a window for these variables.
     //z is included as a sample variable because it has bounds that need to be updated as the function scales
     //the fixed variables will be given uniform attributes that can be easily modified
-    this.baseSearchWindow = new SearchWindow(sampleVariables.concat(["z"]),fixedVariables);
+    this.baseSearchWindow = new SearchWindow(sampleVariables,fixedVariables);
 
     //ok so now we have our base search window. if our number of sample variables is just two,
     //the 2d sampler base window is the same as the base search window. if not, we have to
@@ -173,7 +176,7 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
     }
 
     //ok now we are guaranteed that we have a 2d search space for this window. go make a search window
-    this.searchWindow2d = new SearchWindow(sampleVariablesFor2d.concat(["z"]),fixedVariablesFor2d);
+    this.searchWindow2d = new SearchWindow(sampleVariablesFor2d,fixedVariablesFor2d);
 
     //very long variable name. but this is a very important list. we don't want to iterate through
     //user-specified constants, but we want to iterate through the fixed variables we created to
@@ -241,7 +244,8 @@ var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShad
     }
 
     //getSource takes in a string, an HTML element, or a jquery query
-    this.vertexShaderTemplate = getSource(vertexShaderSrc);
+    this.vertexShaderTemplateUniform = getSource(vertexShaderSrc);
+    this.vertexShaderTemplateRandom = getSource(vertexShaderSrc);
     this.fragShaderTemplate = getSource(fragShaderSrc);
 
     this.problem = problem;
@@ -249,11 +253,13 @@ var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShad
     //first format the templates, aka add the minimum / max attributes to the vertex shader and eliminate the hue stuff
     this.formatTemplates();
 
-    this.buildShaders();
+    var solvingObjectsUniform = this.buildShaders(this.problem.searchWindow2d.sampleVars,'uniform');
+    var solvingObjectsRandom = this.buildShaders(this.problem.baseSearchWindow.sampleVars,'random');
+
     //now we have all the necessary shaders and extractors for an equation and everything. let's go build a solver
     //with all of this
 
-    var solver = new Solver(this.problem,this.myShaders,this.myExtractors);
+    var solver = new Solver(this.problem,solvingObjectsUniform,solvingObjectsRandom);
 
     this.solver = solver;
     //usually the template is not kept in memory, the solver is what the person is interested in
@@ -263,56 +269,84 @@ ShaderTemplateRenderer.prototype.formatTemplates = function() {
     //first remove the hue code, its not needed
     this.fragShaderTemplate = this.fragShaderTemplate.replace(/\/\/hueStart[\s\S]*?\/\/hueEnd/g,"");
 
-    //next, add all the uniform float variables for the window. TODO: this will be the given window not the
-    //base search window
-    var minmaxList = this.problem.baseSearchWindow.minmaxList;
-    var fixedList = this.problem.baseSearchWindow.fixedList;
+    /*******
+    * The big operation here is to replace the uniform attribute declaration of each shader
+    * with the proper variable names. The tricky part is that these variable names are different
+    * depending on the search window, so we basically have to do this twice with the uniform and
+    * base search windows
+    *********/
 
-    var allToAdd = minmaxList.concat(fixedList);
+    //next, add all the uniform variables for the two different windows we have
+    var minmaxListRandom = this.problem.baseSearchWindow.minmaxList;
+    var fixedListRandom = this.problem.baseSearchWindow.fixedList;
 
-    var uniformsToAdd = "";
-    for(var i = 0; i < allToAdd.length; i++)
+    var minmaxListUniform = this.problem.searchWindow2d.minmaxList;
+    var fixedListUniform = this.problem.searchWindow2d.fixedList;
+
+    var allToAddRandom = minmaxListRandom.concat(fixedListRandom);
+    var allToAddUniform = minmaxListUniform.concat(fixedListUniform);
+
+    var uniformsToAddRandom = "";
+    var uniformsToAddUniform = "";
+
+    for(var i = 0; i < allToAddRandom.length; i++)
     {
-        var thisLine = "uniform float " + allToAdd[i] + ";\n";
-        uniformsToAdd = uniformsToAdd + thisLine;
+        var thisLine = "uniform float " + allToAddRandom[i] + ";\n";
+        uniformsToAddRandom = uniformsToAddRandom + thisLine;
+    }
+
+    for(var i = 0; i < allToAddUniform.length; i++)
+    {
+        var thisLine = "uniform float " + allToAddUniform[i] + ";\n";
+        uniformsToAddUniform = uniformsToAddUniform + thisLine;
     }
 
     //replace the uniform section with this
-    this.vertexShaderTemplate = this.vertexShaderTemplate.replace(/\/\/uniformStart[\s\S]*?\/\/uniformEnd/,uniformsToAdd);
+    this.vertexShaderTemplateUniform = this.vertexShaderTemplateUniform.replace(/\/\/uniformStart[\s\S]*?\/\/uniformEnd/,uniformsToAddUniform);
+    this.vertexShaderTemplateRandom = this.vertexShaderTemplateRandom.replace(/\/\/uniformStart[\s\S]*?\/\/uniformEnd/,uniformsToAddRandom);
 
     //we should be done! Go do specific shader builds
 }
 
-ShaderTemplateRenderer.prototype.buildShaders = function() {
+ShaderTemplateRenderer.prototype.buildShaders = function(varsToSolve,type) {
     //ok so essentially loop through in groups of 1-3 variables and compile the shader object to extract them
 
-    //copy this array. TODO: this will only be for the sample variables eventually
-    var varsToSolve = this.problem.variables.slice();
+    //copy this array.
+    var varsToSolve = varsToSolve.slice(0);
 
-    this.myShaders = [];
-    this.myExtractors = [];
+    var myShaders = [];
+    var myExtractors = [];
 
     while(varsToSolve.length > 0)
     {
+        //for now we do one variable per shader
         var varsToExtract = varsToSolve.splice(0,1);
 
         console.log("building shader for these vars");
         console.log(varsToExtract);
 
-        //TODO: switch this based on the strategy
         //SWITCH: random vs uniform shader
         //the shader will render this surface with these variables as the rgb
+        var thisShader = null;
 
-        var thisShader = this.buildUniformShaderForVariables(varsToExtract);
-        var randShader = this.buildRandomShaderForVariables(varsToExtract);
+        if(type == 'random')
+        {
+            thisShader = this.buildRandomShaderForVariables(varsToExtract);
+        }
+        else
+        {
+            thisShader = this.buildUniformShaderForVariables(varsToExtract);
+        }
 
         //the extractor will take in RGB / a window and return the estimated variable value. it uses closures
         var thisExtractor = this.buildExtractorForVariables(varsToExtract);
 
         //add this shader to our shaders
-        this.myShaders.push(thisShader);
-        this.myExtractors.push(thisExtractor);
+        myShaders.push(thisShader);
+        myExtractors.push(thisExtractor);
     }
+
+    return {'shaders':myShaders,'extractors':myExtractors};
 };
 
 ShaderTemplateRenderer.prototype.buildExtractorForVariables = function(varsToExtract) {
@@ -376,7 +410,7 @@ ShaderTemplateRenderer.prototype.buildExtractorForVariables = function(varsToExt
     return extractor;
 };
 
-ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsToExtract) {
+ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsToExtract,vShaderSrc) {
 
     //first copy the variable array
     varsToExtract = varsToExtract.slice(0);
@@ -396,7 +430,6 @@ ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsT
     //And finally, we must assign the variables that we are sampling. For the two 'sample directions', these will be derived from their grid positions,
     //but for the fixed variables, it will be a fixed amount.
 
-    var vShaderSrc = this.vertexShaderTemplate;
     var fShaderSrc = this.fragShaderTemplate;
 
     //here we need all the variables in the problem... do a concat to combine two arrays
@@ -418,7 +451,8 @@ ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsT
             continue;
         }
         
-        //we need to scale these variables as well
+        //we need to scale these variables to a 0->1 range
+        //as well for the extractors to work property
         var min = "min" + varsToExtract[i].toUpperCase();
         var max = "max" + varsToExtract[i].toUpperCase();
 
@@ -439,7 +473,7 @@ ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsT
 
 ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsToExtract) {
 
-    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract);
+    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract,this.vertexShaderTemplateUniform);
 
     var vShaderSrc = baseSource.vShaderSrc;
     var fShaderSrc = baseSource.fShaderSrc;
@@ -466,7 +500,7 @@ ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsT
         var min = "min" + sampleVars[i].toUpperCase();
         var max = "max" + sampleVars[i].toUpperCase();
 
-        var line = allVariables[i] + " = ";
+        var line = sampleVars[i] + " = ";
         line = line + "((aVertexPosition[" + String(i) + "] + 1.0)/(2.0))";
         line = line + " * (" + max + " - " + min + ") + " + min + ";\n";
 
@@ -503,7 +537,7 @@ ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsT
 ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsToExtract) {
 
     //grab the base source and format the easy stuff
-    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract);
+    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract,this.vertexShaderTemplateRandom);
 
     var vShaderSrc = baseSource.vShaderSrc;
     var fShaderSrc = baseSource.fShaderSrc;
@@ -565,14 +599,18 @@ ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsTo
 
 
 //the SOLVER, it will solve for the minimum given a problem / window and everything :D
-var Solver = function(problem,shaders,extractors) {
+var Solver = function(problem,uniformObjects,randomObjects) {
     this.problem = problem;
     this.baseSearchWindow = problem.baseSearchWindow;
+    this.searchWindow2d = problem.searchWindow2d;
 
     //here the shaders and extractors are tied to each other by index. not exactly elegant by good for now,
     //possible refactor but all the object does is just pass the rgb to the extractor and return.
-    this.shaders = shaders;
-    this.extractors = extractors;
+    this.uniformShaders = uniformObjects.shaders;
+    this.uniformExtractors = uniformObjects.extractors;
+
+    this.randomShaders = randomObjects.shaders;
+    this.randomExtractors = randomObjects.extractors;
 
     //ok lets make a frame buffer for our own solving reasons
     this.frameBuffer = gl.createFramebuffer();
@@ -602,12 +640,48 @@ var Solver = function(problem,shaders,extractors) {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderBuffer);
 
+    //reset all
     gl.bindTexture(gl.TEXTURE_2D,null);
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 };
 
-Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuffer) {
+Solver.prototype.solvePass = function() {
+    //a lot of strategy code will go here eventually
+
+    if(this.problem.baseSearchWindow.sampleVars.length > 2)
+    {
+        throw new Error("sample vars more than 2 not supported yet!!");
+    }
+
+    this.updateTimeOnAll();
+
+    //TODO: extend z on all windows if necessary
+    return this.easy2dSolve();
+};
+
+Solver.prototype.updateTimeOnAll = function() {
+
+    //if the problem wants time in order to drive the simulation, 
+    //go ahead and buffer it onto all the shaders i contain
+
+    if(this.problem.wantsTime)
+    {
+        var now = new Date();
+        var deltaT = (now.getTime() - startTime) / 1000.0;
+        for(var i = 0; i < this.uniformShaders.length; i++)
+        {
+            this.uniformShaders[i].updateTime(deltaT);
+        }
+        for(var i = 0; i < this.randomShaders.length; i++)
+        {
+            this.randomShaders[i].updateTime(deltaT);
+        }
+    }
+};
+
+Solver.prototype.easy2dSolve = function() {
+    shouldSwitchToBuffer = true;
 
     if(shouldSwitchToBuffer)
     {
@@ -617,36 +691,21 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
         gl.viewport(0,0, this.frameBuffer.width, this.frameBuffer.height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
-
-    //if the problem wants time in order to drive the simulation, go ahead and buffer it onto all the shaders i contain
-    if(this.problem.wantsTime)
-    {
-        var now = new Date();
-        var deltaT = (now.getTime() - startTime) / 1000.0;
-        for(var i = 0; i < this.shaders.length; i++)
-        {
-            this.shaders[i].updateTime(deltaT);
-        }
-    }
-
-    //if no specific search window specified, use the base search window for this problem
-    if(!searchWindowAttributes)
-    {
-        searchWindowAttributes = this.baseSearchWindow.windowAttributes;
-    }
+    //this function is only called when there are 2 sample variables, so we can use the baseSearchWindow
+    var searchWindowAttributes = this.baseSearchWindow.windowAttributes;
 
     //ok so essentially loop through our shaders,
     //draw each shader, get the RGB at the min,
     //and then pass that into the extractor to get the positions
     var totalMinPosition = {};
 
-    for(var passIndex = 0; passIndex < this.shaders.length; passIndex++)
+    for(var passIndex = 0; passIndex < this.uniformShaders.length; passIndex++)
     {
         //call CLEAR on the frame buffer between each draw
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         //draws the surface with the right coloring
-        this.shaders[passIndex].drawGrid();
+        this.uniformShaders[passIndex].drawGrid();
         
         //get the RGB on the current frame buffer for this surface
         if(shouldSwitchToBuffer)
@@ -661,15 +720,8 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
             ctx.fillStyle = "rgb(255,255,255)";
             ctx.fillRect(colors.col - 2,this.frameBuffer.height - colors.row - 2,4,4);
         }
-        else
-        {
-            var colors = findRGBofBottomFrameBuffer();
-        }
 
-        //console.log("found these colors at the min...");
-        //console.log(colors);
-
-        var thesePositions = this.extractors[passIndex](colors,searchWindowAttributes);
+        var thesePositions = this.uniformExtractors[passIndex](colors,searchWindowAttributes);
 
         //merge these positions into the global solution
         for(key in thesePositions)
@@ -681,8 +733,8 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     //extend out the z coordinate if the minimum z we got was somewhat close to the bottom of the frame buffer
     var shouldExtendZ = colors.yHeight < 0.2;
 
+    //estimate the z coordinate for putting the ball in the right place
     var estZ = colors.yHeight * 2 + -1;
-
     totalMinPosition.zOrig = estZ;
 
     //switch back from the frame buffer
@@ -694,7 +746,6 @@ Solver.prototype.solveForMin = function(searchWindowAttributes,shouldSwitchToBuf
     //return the results
     return {'minPos':totalMinPosition,'extendZ':shouldExtendZ};
 }
-
 
 
 var myShader = function(vShaderSrc,fShaderSrc,uniformAttributes,isBall) {
@@ -1171,11 +1222,9 @@ function drawScene2() {
         'mvMatrix':{type:'4fm','val':mvMatrix},
     };
 
-    var results = solver.solveForMin(null,true);
+    var results = solver.solvePass();
 
     var pos = results.minPos;
-    //TODO extend z if necessary
-    var extendZ = results.extendZ;
 
     cameraPerspectiveClear();
     translateAndRotate();
