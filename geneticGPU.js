@@ -220,8 +220,20 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
     //a-y in the regex for omitting z
     var allVariables = es.match(/([a-yA-Y])/g);
 
-    //make variables unique! we will abuse jquery here
-    allVariables = $j.unique(allVariables);
+    //make variables unique! we will no longer abuse jquery here and abuse javascript objects
+    //abusing jquery didnt work because it would catch two instances of "x" for some reason,
+    //it was confused between the object x and the string containing "x" i guess
+    var varSet = {};
+    for(var i = 0; i < allVariables.length; i++)
+    {
+        varSet[allVariables[i]] = true;
+    }
+    allVariables = [];
+    for(key in varSet)
+    {
+        allVariables.push(key);
+    }
+
     allVariables = allVariables.sort();
 
     //we need to determine which are sample variables in the problem and which are 
@@ -242,6 +254,8 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
             sampleVariables.push(thisVar);
         }
     }
+    console.log("all variables",allVariables);
+    console.log("results: fixed",fixedVariables," sample", sampleVariables);
 
     //go build a window for these variables.
     //z is included as a sample variable because it has bounds that need to be updated as the function scales
@@ -269,6 +283,9 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
     //user-specified constants, but we want to iterate through the fixed variables we created to
     //reduce the dimensionality down to 2
     this.searchWindow2d.variablesWeHadToFixFor2d = variablesWeHadToFixFor2d;
+
+    //also do control HTML
+    this.renderControlHTML();
 };
 
 Problem.prototype.validateEquationString = function(equationString) {
@@ -311,6 +328,34 @@ var getSource = function(obj) {
     return obj.text;
 };
 
+Problem.prototype.renderControlHTML = function() {
+    //this is a big pain
+
+    $j('#equationStringTextArea').text(this.equationString);
+
+    var sampleVariablesHTML = "";
+    for(var i = 0; i < this.baseSearchWindow.sampleVars.length; i++)
+    {
+        var varName = this.baseSearchWindow.sampleVars[i];
+
+        var line = "<p>" + varName + ": Minimum Maximum </p>";
+        sampleVariablesHTML = sampleVariablesHTML + line;
+    }
+
+    var fixedVariablesHTML = "";
+    for(var i = 0; i < this.baseSearchWindow.fixedVars.length; i++)
+    {
+        var varName = this.baseSearchWindow.fixedVars[i];
+
+        var line = "<p>" + varName + ": Value of </p>";
+        fixedVariablesHTML += line;
+    }
+
+    $j('#fixedVariablesList').html(fixedVariablesHTML);
+    $j('#sampleVariablesList').html(sampleVariablesHTML);
+
+};
+
 var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShaderSrc) {
     if(!vertexShaderSrc)
     {
@@ -329,10 +374,6 @@ var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShad
     {
         throw new Error("Specify a problem!");
     }
-
-    //first make a shader that just draws the surface
-    var graphicalShader = new myShader(vertexShaderSrc,fragShaderSrc,problem.searchWindow2d.windowAttributes,false);
-
     //getSource takes in a string, an HTML element, or a jquery query
     this.vertexShaderTemplateUniform = getSource(vertexShaderSrc);
     this.vertexShaderTemplateRandom = getSource(vertexShaderSrc);
@@ -345,6 +386,11 @@ var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShad
 
     var solvingObjectsUniform = this.buildShaders(this.problem.searchWindow2d.sampleVars,'uniform');
     var solvingObjectsRandom = this.buildShaders(this.problem.baseSearchWindow.sampleVars,'random');
+
+    //first make a shader that just draws the surface
+    //in order to get a shader like this, we will grab the source code from the first uniform shader for the
+    //vertices and then simply use our old frag shader src
+    var graphicalShader = new myShader(solvingObjectsUniform.shaders[0].vShaderSrc,fragShaderSrc,problem.searchWindow2d.windowAttributes,false);
 
     //now we have all the necessary shaders and extractors for an equation and everything. let's go build a solver
     //with all of this
@@ -617,9 +663,11 @@ ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsT
     var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.searchWindow2d.windowAttributes,false);
 
     console.log("Generated Shader uniform source for vertex!");
-    console.log(vShaderSrc);
+    //console.log(vShaderSrc);
+    console.log({'src':vShaderSrc});
     console.log("Generated shader uniform source for frag!");
-    console.log(fShaderSrc);
+    //console.log(fShaderSrc);
+    console.log({'src':fShaderSrc});
 
     return shaderObj;
 };
@@ -680,9 +728,11 @@ ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsTo
     var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.baseSearchWindow.windowAttributes,false);
 
     console.log("Generated Shader random source for vertex!");
-    console.log(vShaderSrc);
+    console.log({'src':vShaderSrc});
+    //console.log(vShaderSrc);
     console.log("Generated shader random source for frag!");
-    console.log(fShaderSrc);
+    //console.log(fShaderSrc);
+    console.log({'src':fShaderSrc});
 
     return shaderObj;
 };
@@ -708,8 +758,8 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     //ok lets make a frame buffer for our own solving reasons
     this.frameBuffer = gl.createFramebuffer();
     //default frame buffer sizes (framebuffer sizes)
-    this.frameBuffer.width = 300;
-    this.frameBuffer.height = 300;
+    this.frameBuffer.width = 200;
+    this.frameBuffer.height = 200;
 
     this.texture = gl.createTexture();
     this.renderBuffer = gl.createRenderbuffer();

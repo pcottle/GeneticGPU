@@ -147,7 +147,6 @@ varying vec3 varData;
 varying float vminZ;
 varying float vmaxZ;
 
-//hueStart
 float convertZToG(float z)
 {
     float h, s, v;
@@ -368,7 +367,6 @@ float convertZToR(float z)
     }
     return r;
 }
-//hueEnd
 
 void main(void) {
 
@@ -411,6 +409,39 @@ function zeroPad(num,count)
     return numZeropad;
 }
 
+function equationStringEdit(e) {
+    //go see if this is a valid equation string
+    var newEquation = $j('#equationStringTextArea').val();
+    console.log(newEquation);
+
+    //first validate
+    Problem.prototype.validateEquationString(newEquation);
+
+    //then try doing it
+    buildProblem(newEquation);
+}
+
+function buildProblem(equationString) {
+    var newProb;
+    var newTemplate;
+    var newSolver;
+
+    try {
+        console.log("making new prob with",equationString);
+        newProb = new Problem(equationString,['g']);
+        newTemplate = new ShaderTemplateRenderer(newProb);
+        newSolver = newTemplate.solver;
+    } catch(e) {
+        console.log("NEW PROBLEM FAILED");
+        return null;
+    }
+
+    console.log("new problem success!!");
+    //these are valid so switch over
+    prob = newProb;
+    template = newTemplate;
+    solver = newSolver;
+}
 
 function initGL(canvas) {
     try {
@@ -620,8 +651,10 @@ $j(document).ready(function(){
     $j('#earth-canvas')[0].width = 300;
     $j('#earth-canvas')[0].height = 300;
 
-    eq = "z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time)))) + 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0))"; prob = new Problem(eq); template = new ShaderTemplateRenderer(prob); solver = template.solver; solver.solvePass(); 
+    eq = "z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time)))) + g * 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0))"; prob = new Problem(eq,['g']); template = new ShaderTemplateRenderer(prob); solver = template.solver; solver.solvePass(); 
     drawScene = drawScene2;
+
+    $j('#equationStringTextArea').keyup(function(e) { equationStringEdit(e); });
 
 });
 
@@ -633,9 +666,39 @@ $j(document).ready(function(){
 
 <body>
 
-    <canvas id="earth-canvas" style="border:none;position:absolute;left:20px;top:20px;" width="500px" height="500px"></canvas>
 
-<div id="holder-for-screenshots" style="width:50%;height:100%;position:absolute;top:20px;right:20px;text-align:center;">
+<div id="bottomControlHolder" class="buttonGradient smooth">
+    <h1>Equation:</h1>
+    <textarea cols="100" rows="2" id="equationStringTextArea">Equation here!</textarea>
+
+    <table style="width:100%;margin-bottom:10px;">
+        <tr style="width:100%;text-align:center">
+            <td class="controlCol">
+                <h4>Search Variables</h4>
+            </td>
+            <td class="controlCol">
+                <h4>Fixed / Constant Variables</h4>
+            </td>
+        </tr>
+        <tr style="width:100%;text-align:center">
+            <td class="controlCol">
+                <div id="sampleVariablesList">
+
+                </div>
+            </td>
+            <td class="controlCol">
+                <div id="fixedVariablesList">
+
+                </div>
+            </td>
+        </tr>
+    </table>
+
+</div>
+
+<canvas id="earth-canvas" width="500px" height="500px"></canvas>
+
+<div id="holder-for-screenshots">
 </div>
 
 <img src="loading.gif"class="loadingGif"/>
@@ -647,8 +710,6 @@ $j(document).ready(function(){
         </div>
     </div>
 </div>
-
-
 
 </body>
 
