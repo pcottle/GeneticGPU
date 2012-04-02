@@ -124,7 +124,19 @@ SearchWindow.prototype.makeZoomWindow = function(centerPosition,percent) {
     //we will essentially "breed out" the search window here
 
     //first clone the search window we have right now
-    var copy = clone(this);
+    //this used to be a call to the clone method, but that did not preserve the float32array type
+    //of our perspective matrices, so we will do it manually here
+    var copy = {};
+    copy.windowAttributes = {};
+
+    for(key in this.windowAttributes)
+    {
+        var type = this.windowAttributes[key].type;
+        if(type != '4fm') //don't copy the matrices
+        {
+            copy.windowAttributes[key] = {'type':type,'val':this.windowAttributes[key].val};
+        }
+    }
 
     //the centerposition must contain all the sample variables and the z
     //attribute. it has direct access to the value, NOT the typical "type/val" object
@@ -318,6 +330,9 @@ var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShad
         throw new Error("Specify a problem!");
     }
 
+    //first make a shader that just draws the surface
+    var graphicalShader = new myShader(vertexShaderSrc,fragShaderSrc,problem.searchWindow2d.windowAttributes,false);
+
     //getSource takes in a string, an HTML element, or a jquery query
     this.vertexShaderTemplateUniform = getSource(vertexShaderSrc);
     this.vertexShaderTemplateRandom = getSource(vertexShaderSrc);
@@ -334,7 +349,7 @@ var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShad
     //now we have all the necessary shaders and extractors for an equation and everything. let's go build a solver
     //with all of this
 
-    var solver = new Solver(this.problem,solvingObjectsUniform,solvingObjectsRandom);
+    var solver = new Solver(this.problem,solvingObjectsUniform,solvingObjectsRandom,graphicalShader);
 
     this.solver = solver;
     //usually the template is not kept in memory, the solver is what the person is interested in
@@ -674,10 +689,11 @@ ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsTo
 
 
 //the SOLVER, it will solve for the minimum given a problem / window and everything :D
-var Solver = function(problem,uniformObjects,randomObjects) {
+var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     this.problem = problem;
     this.baseSearchWindow = problem.baseSearchWindow;
     this.searchWindow2d = problem.searchWindow2d;
+    this.graphicalShader = graphicalShader;
 
     this.zoomWindows = [];
 
@@ -723,6 +739,10 @@ var Solver = function(problem,uniformObjects,randomObjects) {
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 };
 
+Solver.prototype.graphicalDraw = function(cameraUpdates) {
+    this.graphicalShader.drawGrid(cameraUpdates);
+};
+
 Solver.prototype.solvePass = function() {
     //a lot of strategy code will go here eventually
 
@@ -731,30 +751,55 @@ Solver.prototype.solvePass = function() {
         throw new Error("sample vars more than 2 not supported yet!!");
     }
 
-    if(this.zoomWindows.length == 0 || true)
+    if(this.zoomWindows.length == 0)
     {
-
+        //TODO: warning! this will update time on the basesearchwindow which very well could
+        //update it on the graphical shader as well. JS passes around references with objects
+        //and copying a searchwindow is difficult because of the float32array thing
         this.updateTimeOnAll();
         this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
 
-        var pos = this.easy2dSolve();
+        //first do a coarsely-sampled 2d solve
+        var results = this.easy2dSolve();
+        var pos = results.minPos;
 
+        //then make a zoom window on this coarse solution and further zoom in
         var zoomWindow = this.baseSearchWindow.makeZoomWindow(pos,0.05);
+        this.setWindowOnShaders(this.uniformShaders,zoomWindow);
 
-        if(!asd)
+        //get the 2d solve results with the zoomed window
+        var zoomResults = this.easy2dSolve(zoomWindow.windowAttributes);
+        var zoomPos = zoomResults.minPos;
+
+        if(!asd) //debug
         {
-            this.zoomWindows.push(zoomWindow);
-            console.log(zoomWindow);
+            console.log("zoompos",zoomPos," and pos", pos);
             asd = true;
         }
+
+        pos.x = zoomPos.x;
+        pos.y = zoomPos.y;
+
+        //TODO: this needs to be automated!!!!!
+        pos.xOrig = (zoomPos.x - minX)/(maxX - minX) * 2 - 1;
+        pos.yOrig = (zoomPos.y - minY)/(maxY - minY) * 2 - 1;
+
+        //now go ahead and update the original "pos" result with the more accurate results,
+        //both for the x and y but also reconstructing the xOrig and yOrig
+
+        this.setWindowOnShaders(this.uniformShaders,this.problem.baseSearchWindow);
         return pos;
     }
     else
     {
-        var zoomWindow = this.zoomWindows.pop();
+        //var zoomWindow = this.zoomWindows.pop();
+        var zoomWindow = this.zoomWindows[0];
+
         this.setWindowOnShaders(this.uniformShaders,zoomWindow);
 
-        var pos = this.easy2dSolve();
+        var results = this.easy2dSolve();
+        var pos = results.minPos;
+        console.log("got this as the result",pos);
 
         return pos;
     }
@@ -793,8 +838,9 @@ Solver.prototype.updateTimeOnAll = function() {
     }
 };
 
-Solver.prototype.easy2dSolve = function() {
+Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
     shouldSwitchToBuffer = true;
+    var offSet = 0; //an offset for the screenshots
 
     if(shouldSwitchToBuffer)
     {
@@ -805,7 +851,11 @@ Solver.prototype.easy2dSolve = function() {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
     //this function is only called when there are 2 sample variables, so we can use the baseSearchWindow
-    var searchWindowAttributes = this.baseSearchWindow.windowAttributes;
+    if(!searchWindowAttributes)
+    {
+        offSet = 2; //if we are solving on a zoomed window, dump 2 different screenshots
+        searchWindowAttributes = this.baseSearchWindow.windowAttributes;
+    }
 
     //ok so essentially loop through our shaders,
     //draw each shader, get the RGB at the min,
@@ -826,9 +876,9 @@ Solver.prototype.easy2dSolve = function() {
             var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
 
             //interactive mode
-            dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex);
+            dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex+offSet);
             //also go color in the area we found
-            var cvs = $j('#screenshot' + String(passIndex))[0];
+            var cvs = $j('#screenshot' + String(passIndex + offSet))[0];
             var ctx = cvs.getContext('2d');
             ctx.fillStyle = "rgb(255,255,255)";
             ctx.fillRect(colors.col - 2,this.frameBuffer.height - colors.row - 2,4,4);
@@ -1323,7 +1373,6 @@ function drawScene() {
     };
 
     //here, we draw the grid with our shader object
-    blendShaderObj.switchToShader();
     setObjUniforms();
     blendShaderObj.drawGrid(cameraUpdates);
 }
@@ -1335,9 +1384,7 @@ function drawScene2() {
         'mvMatrix':{type:'4fm','val':mvMatrix},
     };
 
-    var results = solver.solvePass();
-
-    pos = results.minPos;
+    var pos = solver.solvePass();
 
     cameraPerspectiveClear();
     translateAndRotate();
@@ -1351,9 +1398,7 @@ function drawScene2() {
     };
 
     //here, we draw the grid with our shader object
-    blendShaderObj.switchToShader();
-    setObjUniforms();
-    blendShaderObj.drawGrid(cameraUpdates);
+    solver.graphicalDraw(cameraUpdates);
 
     ballShaderObj.drawGrid(ballUpdates);
 
@@ -1365,7 +1410,7 @@ function drawScene2() {
 
 }
 
-var asd = false;
+var asd = true;
 
 function cameraPerspectiveClear() {
 
