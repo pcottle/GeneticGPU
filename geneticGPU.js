@@ -1452,11 +1452,13 @@ function drawScene2() {
 
     ballShaderObj.drawGrid(ballUpdates);
 
+    /*
     var rightnow = new Date();
     if(rightnow.getTime() % 123 == 0)
     {
         console.log("min pos is", pos);
     }
+    */
 
 }
 

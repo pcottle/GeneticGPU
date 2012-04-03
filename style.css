@@ -424,6 +424,21 @@ h1 {
     padding-top:10px;
 }
 
+#equationStringTextArea {
+    width:80%;
+}
+.validEquation {
+    border:5px solid blue;
+}
+
+.textareaWaiting {
+    border:5px solid pink;
+}
+
+.textareaBadEquation {
+    border:5px solid red;
+}
+
 #earth-canvas {
     border:none;
     float:left;
@@ -437,5 +452,14 @@ h1 {
 
 .controlCol {
     padding-top:10px;
+}
+
+.equationTimeout {
+    display:inline-block;
+    opacity:0.0;
+}
+
+.timeoutLoading {
+    opacity:1;
 }
 
