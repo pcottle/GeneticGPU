@@ -54,6 +54,12 @@ void main(void) {
 </script>
 
 <script id="shader-box-vs" type="x-shader/x-vertex">
+#ifdef GL_ES
+precision highp float;
+#else
+precision mediump float;
+#endif
+
 attribute vec2 aVertexPosition;
 
 uniform float time;
@@ -139,7 +145,11 @@ void main(void) {
 </script>
 
 <script id="shader-box-fs" type="x-shader/x-fragment">
+#ifdef GL_ES
+precision highp float;
+#else
 precision mediump float;
+#endif
 
 varying vec4 vPos;
 varying vec3 varData;
@@ -390,6 +400,13 @@ void main(void) {
 
 
 <script type="text/javascript">
+//good equations:
+//z = sin(5.5*x - time)*cos(5.0*y + time)+0.5*x*x+ abs(y) - 1.0
+//z = sin(pow(x,2.0) + pow(y,2.0) + time) / (abs(x*y) + 1.0) + 0.65 * (x*x/9.0 + y*y/9.0)
+//z = 0.0 - sin(x*y + time) + (cos(time) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + 0.5*cos(x * y * 3.0 + time * 2.0)
+//z = 0.5*sqrt(x * y + y *y)+ 1.0 * sin(sqrt(x*x + y*y) + time)  + 0.8*(pow(x/3.0,0.5) + pow(y/3.0,0.5)) - 1.5 + 0.5*cos(x)
+
+
 $j = jQuery.noConflict();
 
 //globals
