@@ -17,8 +17,8 @@
 <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
 <script type="text/javascript" src="Tween.js"></script>
-<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-<!-- <script type="text/javascript" src="jquery-1.6.1.min.js"></script> -->
+<!--<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>-->
+<script type="text/javascript" src="jquery-1.6.1.min.js"></script>
 <script type="text/javascript" src="geneticGPU.js"></script>
 
 <script id="shader-simple-vs" type="x-shader/x-vertex">
@@ -730,6 +730,8 @@ $j(document).ready(function(){
     $j('#equationStringTextArea').keydown(function() { startOrResetTimeout(); });
     lastEquation = $j('#equationStringTextArea').val().replace(/\s/g,'');
 
+    $j('#providedEquations').change(function(e) { console.log(e); });
+
 });
 
 </script>
@@ -744,7 +746,15 @@ $j(document).ready(function(){
 <div id="bottomControlHolder" class="buttonGradient smooth">
     <h1>Equation:</h1>
     <textarea rows="4" id="equationStringTextArea" class="validEquation">Equation here!</textarea>
+
     <img id="timeoutGif" src="equationTimeout.gif" class="equationTimeout smooth" />
+
+    <select id="providedEquations">
+        <option value="z = sin(5.5*x - time)*cos(5.0*y + time)+0.5*x*x+ abs(y) - 1.0">Wavy</option>
+        <option value="z = sin(pow(x,2.0) + pow(y,2.0) + time) / (abs(x*y) + 1.0) + 0.65 * (x*x/9.0 + y*y/9.0)">Fun one</option>
+        <option value="z = 0.0 - sin(x*y + time) + (cos(time) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + 0.5*cos(x * y * 3.0 + time * 2.0)">Mini Boss</option>
+        <option value="z = 0.5*sqrt(x * y + y *y)+ 1.0 * sin(sqrt(x*x + y*y) + time)  + 0.8*(pow(x/3.0,0.5) + pow(y/3.0,0.5)) - 1.5 + 0.5*cos(x)">Gogogogo</option>
+    </select>
 
     <table style="width:100%;margin-bottom:10px;">
         <tr style="width:100%;text-align:center">

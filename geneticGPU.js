@@ -185,10 +185,9 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
         userSpecifiedFixedVariables = [];
     }
 
-    if(!this.validateEquationString(equationString))
-    {
-        return null;
-    }
+    //check if its valid. validateequationstring will throw errors on bad strings,
+    //so these need to be caught by a try / catch block
+    equationString = this.validateEquationString(equationString);
 
     //first add the colon if it's not there
     if(!equationString.match(/;/))
@@ -291,26 +290,42 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
 Problem.prototype.validateEquationString = function(equationString) {
     //first remove all the valid digits
     var es = equationString;
+    var toReturn = equationString;
 
     //first check that it begins with "z = " something
     if(!es.match(/^[ ]*z[ ]*=/g))
     {
-        alert("the equation must start with z = something. Z is your cost function that you are trying to minimize with non-convex optimization");
-        return null;
+        throw new Error("the equation must start with z = something. Z is your cost function that you are trying to minimize with non-convex optimization");
     }
 
-    //remove all valid floats
-    es = es.replace(/(\d+)\.(\d+)/g,"");
-
-    //now see if there are digits left
-    if(es.match(/\d+/g))
+    //see if there are any digits with no period before and after
+    if(es.match(/([^.]\d+[^.])|([^.]\d+$)|(^\d+[^.])/g))
     {
-        alert("You need to make all numbers floats for the Shader Language. These numbers need a .0 after them: " + es);
-        return null;
+        //this is a giant pain but we have to replace them specifically by index
+        var shouldContinue = true;
+        var regex = /([^.]\d+[^.])|([^.]\d+$)|(^\d+[^.])/;
+        while(shouldContinue || false)
+        {
+            var indexFirst = es.search(regex);
+            if(indexFirst == -1)
+            {
+                shouldContinue = false;
+            }
+            else
+            {
+                var matchString = es.match(regex);
+                var matchLength = matchString.length;
+
+                var firstPart = es.substring(0,indexFirst);
+                var secondPart = es.substring(indexFirst + matchLength);
+
+                es = firstPart + matchString + ".0" + secondPart;
+            }
+        }
     }
 
     //probably valid, still need to compile it of course though but this catches the user mistakes
-    return true;
+    return es;
 };
 
 var getSource = function(obj) {
@@ -1638,8 +1653,7 @@ function compileShader(str,type) {
     gl.compileShader(shader);
 
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        alert(gl.getShaderInfoLog(shader));
-        return null;
+        throw new Error("Compile Error:" + String(gl.getShaderInfoLog(shader)));
     }
 
     return shader;
