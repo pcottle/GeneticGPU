@@ -299,28 +299,45 @@ Problem.prototype.validateEquationString = function(equationString) {
     }
 
     //see if there are any digits with no period before and after
-    if(es.match(/([^.]\d+[^.])|([^.]\d+$)|(^\d+[^.])/g))
+    if(es.match(/([^.0-9]\d+[^.0-9])|([^.0-9]\d+$)|(^\d+[^.0-9])/g))
     {
         //this is a giant pain but we have to replace them specifically by index
         var shouldContinue = true;
-        var regex = /([^.]\d+[^.])|([^.]\d+$)|(^\d+[^.])/;
-        while(shouldContinue || false)
+        var regex = /([^.0-9]\d+[^.0-9])|([^.0-9]\d+$)|(^\d+[^.0-9])/;
+        var num = 0;
+        while(true)
         {
+            num++;
+            if(num > 10)
+            {
+                break;
+            }
             var indexFirst = es.search(regex);
             if(indexFirst == -1)
             {
-                shouldContinue = false;
+                break;
             }
-            else
-            {
-                var matchString = es.match(regex);
-                var matchLength = matchString.length;
+            var matchString = es.match(regex)[0];
+            //extract just the number and get the rest
+            //GOD this is a pain
+            var numWithin = matchString.match(/(\d+)/)[0];
+            var numWithinIndex = matchString.search(/(\d+)/);
+            var withinPart1 = matchString.substring(0,numWithinIndex);
+            var withinPart2 = matchString.substring(numWithinIndex + numWithin.length);
 
-                var firstPart = es.substring(0,indexFirst);
-                var secondPart = es.substring(indexFirst + matchLength);
+             var matchString = es.match(regex)[0];
+            //extract just the number and get the rest
+            //GOD this is a pain
+            var numWithin = matchString.match(/(\d+)/)[0];
+            var numWithinIndex = matchString.search(/(\d+)/);
+            var withinPart1 = matchString.substring(0,numWithinIndex);
+            var withinPart2 = matchString.substring(numWithinIndex + numWithin.length);
+            var matchLength = matchString.length;
 
-                es = firstPart + matchString + ".0" + secondPart;
-            }
+            var firstPart = es.substring(0,indexFirst);
+            var secondPart = es.substring(indexFirst + matchLength);
+
+            es = firstPart + withinPart1 + numWithin + ".0" + withinPart2 + secondPart;
         }
     }
 

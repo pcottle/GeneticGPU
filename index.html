@@ -472,7 +472,8 @@ function equationStringEdit() {
     }
 
     //first validate
-    Problem.prototype.validateEquationString(newEquation);
+    var back = Problem.prototype.validateEquationString(newEquation);
+    $j('#equationStringTextArea').val(back);
 
     //then try doing it
     if(buildProblem(newEquation))
@@ -493,15 +494,16 @@ function buildProblem(equationString) {
     var newTemplate;
     var newSolver;
 
-    try {
+    //try {
         console.log("making new prob with",equationString);
         newProb = new Problem(equationString,['g']);
         newTemplate = new ShaderTemplateRenderer(newProb);
         newSolver = newTemplate.solver;
-    } catch(e) {
-        console.log("NEW PROBLEM FAILED");
-        return null;
-    }
+    //} catch(e) {
+        //console.log("NEW PROBLEM FAILED");
+        //console.log(String(e));
+        //return null;
+    //}
 
     console.log("new problem success!!");
     //these are valid so switch over
