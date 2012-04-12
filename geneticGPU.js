@@ -1602,10 +1602,6 @@ function webGLStart() {
     gl.enable(gl.DEPTH_TEST);
     gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
 
-    document.onmousedown = handleMouseDown;
-    document.onmouseup = handleMouseUp;
-    document.onmousemove = handleMouseMove;
-
     //do the finish down here
     stopLoadingWithText();
     doEarthFlyin();

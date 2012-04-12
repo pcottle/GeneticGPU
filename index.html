@@ -459,6 +459,14 @@ function stopWaiting() {
     $j('#equationStringTextArea').removeClass('textareaWaiting');
 }
 
+function changeSelected() {
+    //get the value at the selected one
+    var esOfSelected = $j('#providedEquations').val();
+    $j('#equationStringTextArea').val(esOfSelected);
+    equationStringEdit();
+
+};
+
 function equationStringEdit() {
     stopWaiting();
 
@@ -716,6 +724,10 @@ $j(document).ready(function(){
     $j('#earth-canvas').bind('mousewheel',onMouseWheel);
     $j('#earth-canvas').bind('DOMMouseScroll',onMouseWheel);
 
+    $j('#earth-canvas').bind('mousedown',handleMouseDown);
+    $j('#earth-canvas').bind('mousemove',handleMouseMove);
+    $j('#earth-canvas').bind('mouseup',handleMouseUp);
+
     //default viewport sizes
     gl.viewportHeight = 300;
     gl.viewportWidth = 300;
@@ -732,7 +744,7 @@ $j(document).ready(function(){
     $j('#equationStringTextArea').keydown(function() { startOrResetTimeout(); });
     lastEquation = $j('#equationStringTextArea').val().replace(/\s/g,'');
 
-    $j('#providedEquations').change(function(e) { console.log(e); });
+    $j('#providedEquations').change(function(e) { changeSelected(); });
 
 });
 

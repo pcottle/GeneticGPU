@@ -130,7 +130,7 @@ h1 {
 }
 
 .fmButtonHolder {
-    width:100%;
+    width:95%;
     position:absolute;
     bottom:10px;
     height:60px;
@@ -400,7 +400,9 @@ h1 {
 }
 
 #bottomControlHolder {
-    width:100%;
+    width:98%;
+    margin-left:auto;
+    margin-right:auto;
 
     -moz-box-shadow: inset 0px 0px 10px #000000;
     -webkit-box-shadow: inset 0px 0px 10px #000000;
@@ -446,7 +448,6 @@ h1 {
 }
 
 #holder-for-screenshots {
-    height:90%;
     text-align:center;
 }
 
