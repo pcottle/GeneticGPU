@@ -1777,7 +1777,7 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
 
     var anyColorPositive = function(x,y) {
         var rIndex = converter(x,y);
-        return allPixels[rIndex] || allPixels[rIndex+1] || allPixels[rIndex+2];
+        return allPixels[rIndex] || allPixels[rIndex+1] || allPixels[rIndex+2] || allPixels[rIndex+3];
     };
 
     //scan from the bottom to the top on the current frame buffer, and return once we find something thats

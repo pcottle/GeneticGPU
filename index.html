@@ -17,8 +17,8 @@
 <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
 <script type="text/javascript" src="Tween.js"></script>
-<!--<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>-->
-<script type="text/javascript" src="jquery-1.6.1.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<!--<script type="text/javascript" src="jquery-1.6.1.min.js"></script>-->
 <script type="text/javascript" src="geneticGPU.js"></script>
 
 <script id="shader-simple-vs" type="x-shader/x-vertex">
@@ -502,16 +502,16 @@ function buildProblem(equationString) {
     var newTemplate;
     var newSolver;
 
-    //try {
+    try {
         console.log("making new prob with",equationString);
         newProb = new Problem(equationString,['g']);
         newTemplate = new ShaderTemplateRenderer(newProb);
         newSolver = newTemplate.solver;
-    //} catch(e) {
-        //console.log("NEW PROBLEM FAILED");
-        //console.log(String(e));
-        //return null;
-    //}
+    } catch(e) {
+        console.log("NEW PROBLEM FAILED");
+        console.log(String(e));
+        return null;
+    }
 
     console.log("new problem success!!");
     //these are valid so switch over
@@ -625,8 +625,9 @@ function handleMouseMove(event) {
     {
         return;
     }
-
-    if (!mouseDown) {
+    if(!event.which || !mouseDown)
+    {
+        mouseDown = false;
         lastMouseX = event.clientX;
         lastMouseY = event.clientY;
         return;
@@ -646,9 +647,9 @@ function handleMouseMove(event) {
     {
         globalXrotate = angleLimit;
     }
-    else if (globalXrotate < -angleLimit)
+    else if (globalXrotate < -angleLimit*1.5)
     {
-        globalXrotate = -angleLimit;
+        globalXrotate = -angleLimit * 1.5;
     }
 
     lastMouseX = newX
@@ -725,7 +726,8 @@ $j(document).ready(function(){
     $j('#earth-canvas').bind('DOMMouseScroll',onMouseWheel);
 
     $j('#earth-canvas').bind('mousedown',handleMouseDown);
-    $j('#earth-canvas').bind('mousemove',handleMouseMove);
+    //$j('#earth-canvas').bind('mousemove',handleMouseMove);
+    $j(document).bind('mousemove',handleMouseMove);
     $j('#earth-canvas').bind('mouseup',handleMouseUp);
 
     //default viewport sizes
@@ -766,8 +768,8 @@ $j(document).ready(function(){
     <select id="providedEquations">
         <option value="z = sin(5.5*x - time)*cos(5.0*y + time)+0.5*x*x+ abs(y) - 1.0">Wavy</option>
         <option value="z = sin(pow(x,2.0) + pow(y,2.0) + time) / (abs(x*y) + 1.0) + 0.65 * (x*x/9.0 + y*y/9.0)">Fun one</option>
-        <option value="z = 0.0 - sin(x*y + time) + (cos(time) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + 0.5*cos(x * y * 3.0 + time * 2.0)">Mini Boss</option>
-        <option value="z = 0.5*sqrt(x * y + y *y)+ 1.0 * sin(sqrt(x*x + y*y) + time)  + 0.8*(pow(x/3.0,0.5) + pow(y/3.0,0.5)) - 1.5 + 0.5*cos(x)">Gogogogo</option>
+        <option value="z = 0.0 - sin(x*y + time*0.7) + (cos(time*0.3) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + 0.5*cos(x * y * 3.0 + time * 1.0) + x*0.1 + (pow(x/3.0,2.0) + pow(y/3.0,2.0))">Mini Boss</option>
+        <option value="z = 1.0*sin(pow(x,3.0) + pow(y,3.0) + time*0.5) / (abs(x*y) + 2.0) + 1.65 * (x*x/9.0 + y*y/9.0)">Lasagna</option>
     </select>
 
     <table style="width:100%;margin-bottom:10px;">
