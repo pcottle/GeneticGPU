@@ -829,18 +829,21 @@ $j(document).ready(function(){
 
 
 <div id="bottomControlHolder" class="buttonGradient smooth">
-    <h1>Equation:</h1>
+    <h1 style="margin-bottom:10px">Equation:</h1>
     <textarea rows="4" id="equationStringTextArea" class="validEquation">Equation here!</textarea>
 
     <img id="timeoutGif" src="equationTimeout.gif" class="equationTimeout smooth" />
 
-    <select id="providedEquations">
-        <option value="z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time)))) + g * 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0));">Vanilla</option>
-        <option value="z = sin(5.5*x - time)*cos(5.0*y + time)+0.5*x*x+ abs(y) - 1.0">Wavy</option>
-        <option value="z = sin(pow(x,2.0) + pow(y,2.0) + time) / (abs(x*y) + 1.0) + 0.65 * (x*x/9.0 + y*y/9.0)">Fun one</option>
-        <option value="z = 0.0 - sin(x*y + time*0.7) + (cos(time*0.3) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + 0.5*cos(x * y * 3.0 + time * 1.0) + x*0.1 + (pow(x/3.0,2.0) + pow(y/3.0,2.0))">Mini Boss</option>
-        <option value="z = 1.0*sin(pow(x,3.0) + pow(y,3.0) + time*0.5) / (abs(x*y) + 2.0) + 1.65 * (x*x/9.0 + y*y/9.0)">Lasagna</option>
-    </select>
+    <div style="display:inline-block;width:140px;position:relative;top:-20px;">
+        <select id="providedEquations" style="display:inline-block">
+            <option value="z = 2.0 * cos(time + x + y) * (0.5 + (sin(x*x + y*x + time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(time)))) + g * 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0));">Vanilla</option>
+            <option value="z = sin(5.5*x - time)*cos(5.0*y + time)+0.5*x*x+ abs(y) - 1.0">Wavy</option>
+            <option value="z = sin(pow(x,2.0) + pow(y,2.0) + time) / (abs(x*y) + 1.0) + 0.65 * (x*x/9.0 + y*y/9.0)">Fun one</option>
+            <option value="z = 0.0 - sin(x*y + time*0.7) + (cos(time*0.3) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + 0.5*cos(x * y * 3.0 + time * 1.0) + x*0.1 + (pow(x/3.0,2.0) + pow(y/3.0,2.0))">Mini Boss</option>
+            <option value="z = 1.0*sin(pow(x,3.0) + pow(y,3.0) + time*0.5) / (abs(x*y) + 2.0) + 1.65 * (x*x/9.0 + y*y/9.0)">Lasagna</option>
+        </select>
+       <a onclick="javascript:solver.baseSearchWindow.reset();" class="uiButtonWhite" style="display:inline-block">Reset Window</a> 
+    </div>
 
     <table style="width:100%;margin-bottom:10px;">
         <tr style="width:100%;text-align:center">

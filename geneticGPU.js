@@ -78,6 +78,16 @@ var SearchWindow = function(sampleVars,fixedVars) {
     this.minmaxList = [];
     this.fixedList = [];
 
+    this.reset();
+
+};
+
+
+SearchWindow.prototype.reset = function() {
+
+    this.minmaxList = [];
+    this.fixedList = [];
+
     //include z for window attributes and minmax, but it's not a "sample var"
     var attributeVars = this.sampleVars.concat(['z']);
 
@@ -89,6 +99,9 @@ var SearchWindow = function(sampleVars,fixedVars) {
         this.windowAttributes[min] = {type:'f', val: -3};
         this.windowAttributes[max] = {type:'f', val: 3};
 
+        $j('#' + min).html(String(-3));
+        $j('#' + max).html(String(3));
+
         this.minmaxList.push(min);
         this.minmaxList.push(max);
     }
@@ -97,6 +110,8 @@ var SearchWindow = function(sampleVars,fixedVars) {
     {
         var fixedVal = "fixed" + this.fixedVars[j].toUpperCase() + "val";
         this.windowAttributes[fixedVal] = {type:'f',val:1};
+
+        $j('#' + fixedVal).html(String(1));
 
         this.fixedList.push(fixedVal);
     }
@@ -792,6 +807,9 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
 
     this.zoomWindows = [];
 
+    var now = new Date();
+    this.createTime = now.getTime();
+
     //here the shaders and extractors are tied to each other by index. not exactly elegant by good for now,
     //possible refactor but all the object does is just pass the rgb to the extractor and return.
     this.uniformShaders = uniformObjects.shaders;
@@ -856,8 +874,23 @@ Solver.prototype.solvePass = function() {
 
         //first do a coarsely-sampled 2d solve
         var results = this.easy2dSolve();
+
+        //if it breaks, go reset the window
+        if(!results)
+        {
+            this.baseSearchWindow.reset();
+            this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+            results = this.easy2dSolve();
+        }
+
+        if(!results) //if its still broken, we might be waiting for the gpu to buffer or something
+        {
+            return;
+        }
+
         var pos = results.minPos;
 
+        //TODO: detect when we have missed our window
         if(results.increaseZ)
         {
             console.log("increasing z");
@@ -959,13 +992,6 @@ Solver.prototype.updateTimeOnAll = function() {
     }
 };
 
-Solver.prototype.updateExtractors = function() {
-
-
-
-
-};
-
 Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
     shouldSwitchToBuffer = true;
     var offSet = 0; //an offset for the screenshots
@@ -1002,6 +1028,17 @@ Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
         if(shouldSwitchToBuffer)
         {
             var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
+
+            if(colors.noneFound) //this occurs for a while once we boot, so only return null after a 3 seconds
+            {
+                var now = new Date();
+                var nowTime = now.getTime();
+                if(nowTime - this.createTime > 3 * 1000)
+                {
+                    console.warn("none found after bootup time, resetting window");
+                    return null;
+                }
+            }
 
             //interactive mode
             dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex+offSet);
