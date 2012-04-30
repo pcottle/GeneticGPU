@@ -456,7 +456,7 @@ frobController.prototype.frobMouseMove = function(e) {
         this.isFrobbing = false;
     }
 
-    var deltaX = this.startX - e.clientX;
+    var deltaX = e.clientX - this.startX;
 
     var expFactor = 5 * Math.exp(-Math.pow(Math.abs(deltaX * 0.05),2));
     var delta = 5 - expFactor;
@@ -473,6 +473,8 @@ frobController.prototype.frobMouseMove = function(e) {
 
     //now go set this
     prob.baseSearchWindow.windowAttributes[this.idToChange].val = newVal;
+    //we need to update the extractors as well
+
     $j(this.srcElement).html(String(newVal).substring(0,5));
 };
 

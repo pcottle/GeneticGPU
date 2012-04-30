@@ -58,7 +58,7 @@ background-image: -webkit-gradient(
 	color: #eee;
     padding:0px;
     margin:0px;
-	
+	-khtml-user-select: none;
 }
 
 /****** FONT FACE -- Credit to Hakim El Hattab for this part, and the cubic bezier values ******/

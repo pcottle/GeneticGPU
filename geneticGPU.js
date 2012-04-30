@@ -1,15 +1,4 @@
 
-//board bounds
-var sym = 3;
-
-var minX = -sym;
-var maxX = sym;
-var minY = -sym;
-var maxY = sym;
-
-var minZ = -3;
-var maxZ = 3;
-
 //divisors
 var numRows = 71;
 
@@ -365,10 +354,12 @@ Problem.prototype.renderControlHTML = function() {
 
     $j('#equationStringTextArea').text(this.equationString);
 
+    var sampleVarsToRender = this.baseSearchWindow.sampleVars.concat(['z']);
+
     var sampleVariablesHTML = "";
-    for(var i = 0; i < this.baseSearchWindow.sampleVars.length; i++)
+    for(var i = 0; i < sampleVarsToRender.length; i++)
     {
-        var varName = this.baseSearchWindow.sampleVars[i];
+        var varName = sampleVarsToRender[i];
 
         var minKey = 'min' + varName.toUpperCase();
         var maxKey = 'max' + varName.toUpperCase();
@@ -376,9 +367,13 @@ Problem.prototype.renderControlHTML = function() {
         var minVal = this.baseSearchWindow.windowAttributes[minKey].val;
         var maxVal = this.baseSearchWindow.windowAttributes[maxKey].val;
 
-        var line = "<p>" + varName + ": Minimum"
+        var line = "<p>" + varName + ":";
+        line = line + " Minimum ";
+        line = line + '<span class="frobSpanner" id="' + minKey + '">' + String(minVal) + '</span>';
+
+        line = line + " Maximum ";
+        line = line + '<span class="frobSpanner" id="' + maxKey + '">' + String(maxVal) + '</span>';
         
-        line = line + "Maximum"
         line = line + "</p>";
         sampleVariablesHTML = sampleVariablesHTML + line;
     }
@@ -863,6 +858,26 @@ Solver.prototype.solvePass = function() {
         var results = this.easy2dSolve();
         var pos = results.minPos;
 
+        if(results.increaseZ)
+        {
+            console.log("increasing z");
+            this.baseSearchWindow.windowAttributes.minZ.val += 1;
+            this.baseSearchWindow.windowAttributes.maxZ.val += 1.1;
+
+        } else if (results.decreaseZ) {
+            console.log("decreasing z");
+            this.baseSearchWindow.windowAttributes.minZ.val -= 1;
+            this.baseSearchWindow.windowAttributes.maxZ.val -= 0.9;
+        }
+        if(results.decreaseZ || results.increaseZ)
+        {
+            //update the control UI
+            $j('#minZ').html(String(this.baseSearchWindow.windowAttributes.minZ.val).substring(0,5));
+            $j('#maxZ').html(String(this.baseSearchWindow.windowAttributes.maxZ.val).substring(0,5));
+        }
+
+        //if we should extend z, just subtract 0.5 for now
+
         //then make a zoom window on this coarse solution and further zoom in
         var zoomWindow = this.baseSearchWindow.makeZoomWindow(pos,0.05);
         this.setWindowOnShaders(this.uniformShaders,zoomWindow);
@@ -879,6 +894,12 @@ Solver.prototype.solvePass = function() {
 
         pos.x = zoomPos.x;
         pos.y = zoomPos.y;
+
+        var minX = this.baseSearchWindow.windowAttributes.minX.val;
+        var maxX = this.baseSearchWindow.windowAttributes.maxX.val;
+
+        var minY = this.baseSearchWindow.windowAttributes.minY.val;
+        var maxY = this.baseSearchWindow.windowAttributes.maxY.val;
 
         //TODO: this needs to be automated!!!!!
         pos.xOrig = (zoomPos.x - minX)/(maxX - minX) * 2 - 1;
@@ -938,6 +959,13 @@ Solver.prototype.updateTimeOnAll = function() {
     }
 };
 
+Solver.prototype.updateExtractors = function() {
+
+
+
+
+};
+
 Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
     shouldSwitchToBuffer = true;
     var offSet = 0; //an offset for the screenshots
@@ -993,8 +1021,10 @@ Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
         }
     }
 
-    //extend out the z coordinate if the minimum z we got was somewhat close to the bottom of the frame buffer
-    var shouldExtendZ = colors.yHeight < 0.2;
+    //decrease the z coordinate if the minimum z we got was somewhat close to the bottom of the frame buffer
+    //and vice versa
+    var shouldDecreaseZ = colors.yHeight < 0.2;
+    var shouldIncreaseZ = colors.yHeight > 0.8;
 
     //estimate the z coordinate for putting the ball in the right place
     var estZ = colors.yHeight * 2 + -1;
@@ -1007,7 +1037,7 @@ Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
     }
 
     //return the results
-    return {'minPos':totalMinPosition,'extendZ':shouldExtendZ};
+    return {'minPos':totalMinPosition,'increaseZ':shouldIncreaseZ,'decreaseZ':shouldDecreaseZ};
 }
 
 
@@ -1256,14 +1286,16 @@ function setObjUniforms() {
     var now = new Date();
     var deltaT = (now.getTime() - startTime) / 1000.0;
 
+    var sym = 3;
+
     var attributes = {
         'time':{type:'f',val:deltaT},
-        'minX':{type:'f',val:minX},
-        'maxX':{type:'f',val:maxX},
-        'maxY':{type:'f',val:maxY},
-        'minY':{type:'f',val:minY},
-        'minZ':{type:'f',val:minZ},
-        'maxZ':{type:'f',val:maxZ},
+        'minX':{type:'f',val:-sym},
+        'maxX':{type:'f',val:sym},
+        'maxY':{type:'f',val:-sym},
+        'minY':{type:'f',val:sym},
+        'minZ':{type:'f',val:-sym},
+        'maxZ':{type:'f',val:sym},
         'pMatrix':{type:'4fm',val:pMatrix},
         'mvMatrix':{type:'4fm',val:mvMatrix},
     };
