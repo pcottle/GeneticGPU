@@ -1,27 +1,28 @@
 var fs = require('fs');
 
 var server = require('http').createServer(function(req, response){
-
-    console.log(req.url);
-    
+    console.log('Got a request for',req.url);
     //landing page -> give landing page
-
     var pageToGive;
 
     if(req.url == '/')
     {
-        pageToGive = '/landing.html';
+        pageToGive = '/index.html';
     }
-    if(/roomSlave/.exec(req.url))
+    else
     {
-        pageToGive = '/roomSlave.html';
+        pageToGive = req.url;
     }
-    if(/roomMaster/.exec(req.url))
-    {
-        pageToGive = '/roomMaster.html';
-    }
+    console.log("Trying to get page",pageToGive);
 
-    //room page -> give the room page
+    if(!pageToGive) // aka for favicons
+    {
+        response.writeHead(404, {'Content-Type':'text/html'});
+        response.write("Not found!");
+        response.end();
+        console.log("page ", req.url, "not found");
+        return;
+    }
 
     fs.readFile(__dirname+pageToGive, function(err, data){
 
@@ -29,33 +30,24 @@ var server = require('http').createServer(function(req, response){
           response.write(data);  
           response.end();
     });
-
 });
 
 var port = process.env.PORT || 8080;
-
 server.listen(port);
 
+console.log("running server on ",port);
 
 var nowjs = require("now");
-var everyone = nowjs.initialize(server);
-
+var everyone = nowjs.initialize(server, {socketio: {transports: ['xhr-polling', 'jsonp-polling']}});
 
 nowjs.on('connect', function(){
-    this.now.room = "room 1";
+    this.now.room = "lobby";
     nowjs.getGroup(this.now.room).addUser(this.user.clientId);
-    console.log("Joined: " + this.now.name);
+    console.log(this.now.name + " joined the lobby");
 });
 
-
-everyone.now.getPeopleInRoom = function(roomName,callback) {
-    console.log("getting peeps in room " + roomName);
-    nowjs.getGroup(roomName).getUsers(function(users) { console.log("the number of users!"); console.log(users.length); callback(users.length);});
-
-};
-
 nowjs.on('disconnect', function(){
-    console.log("Left: " + this.now.name);
+    console.log("Left: " + this.now.name + "from room", this.now.room);
 });
 
 everyone.now.changeRoom = function(newRoom){
@@ -63,6 +55,7 @@ everyone.now.changeRoom = function(newRoom){
     nowjs.getGroup(newRoom).addUser(this.user.clientId);
     this.now.room = newRoom;
     this.now.receiveMessage("SERVER", "You're now in " + this.now.room);
+    console.log(this.now.name, "joined the room ", this.now.room);
 }
 
 everyone.now.distributeMessage = function(message){

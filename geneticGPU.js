@@ -370,7 +370,16 @@ Problem.prototype.renderControlHTML = function() {
     {
         var varName = this.baseSearchWindow.sampleVars[i];
 
-        var line = "<p>" + varName + ": Minimum Maximum </p>";
+        var minKey = 'min' + varName.toUpperCase();
+        var maxKey = 'max' + varName.toUpperCase();
+
+        var minVal = this.baseSearchWindow.windowAttributes[minKey].val;
+        var maxVal = this.baseSearchWindow.windowAttributes[maxKey].val;
+
+        var line = "<p>" + varName + ": Minimum"
+        
+        line = line + "Maximum"
+        line = line + "</p>";
         sampleVariablesHTML = sampleVariablesHTML + line;
     }
 
@@ -378,9 +387,18 @@ Problem.prototype.renderControlHTML = function() {
     for(var i = 0; i < this.baseSearchWindow.fixedVars.length; i++)
     {
         var varName = this.baseSearchWindow.fixedVars[i];
+        
+        //we need to construct the "key" here
+        var key = "fixed" + varName.toUpperCase() + "val";
 
-        var line = "<p>" + varName + ": Value of </p>";
+        var varValue = this.baseSearchWindow.windowAttributes[key].val;
+
+        var line = "<p>" + varName + ": Value of ";
+        line = line + '<span class="frobSpanner" id="' + key + '">' + String(varValue) + '</span>';
+        line = line + "</p>";
         fixedVariablesHTML += line;
+
+        //TODO: also need checkbox here to fix / unfix
     }
 
     $j('#fixedVariablesList').html(fixedVariablesHTML);
