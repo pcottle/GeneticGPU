@@ -424,10 +424,10 @@ Problem.prototype.renderControlHTML = function() {
 
         var line = "<p>" + varName + ": Value of ";
         line = line + '<span class="frobSpanner" id="' + key + '">' + String(varValue) + '</span>';
-        line = line + "</p>";
 
-        line = line + '<a class="uiButtonWhite unfixButton" style="display:inline-block;" id="';
+        line = line + '<a class="uiButtonWhite unfixButton" style="display:inline-block;margin-left:10px;" id="';
         line = line + varName + '">Unfix</a>';
+        line = line + "</p>";
 
         fixedVariablesHTML += line;
     }
@@ -845,6 +845,9 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     $j('.unfixButton').live('mousedown',function(e) {
         _this.unfixVariable(e);
     });
+
+    //also clear canvases
+    $j(',screenshotCanvas').remove();
 
     //initial set of the window on the shaders
     this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);

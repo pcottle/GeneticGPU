@@ -420,6 +420,19 @@ var canvas = null;
 var equationTimeout = null;
 var lastEquation = "";
 
+function randomString(string_length) {
+    if(!string_length)
+    {
+        string_length = 8;
+    }
+	var chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXTZabcdefghiklmnopqrstuvwxyz";
+	var randomstring = '';
+	for (var i=0; i<string_length; i++) {
+		var rnum = Math.floor(Math.random() * chars.length);
+		randomstring += chars.substring(rnum,rnum+1);
+	}
+    return randomstring;
+}
 
 /************** some UI classes **************/
 
@@ -478,6 +491,22 @@ frobController.prototype.frobMouseMove = function(e) {
     $j(this.srcElement).html(String(newVal).substring(0,5));
 };
 
+function joinRoom(roomName) {
+    //NODEJS TODO NOWJS
+
+
+}
+
+function makeAndJoinRoom(roomName) {
+    //NODEJS TODO NOWJS
+
+}
+
+
+function changeRoomEquation(equationString) {
+
+
+}
 
 
 function zeroPad(num,count)
@@ -548,7 +577,8 @@ function equationStringEdit() {
     {
         //good equation -- the default style is "good equation"
         lastEquation = newEquation.replace(/\s/g,'');
-        //so just return
+        //update your now.js room
+        changeRoomEquation(newEquation);
     }
     else
     {
@@ -801,11 +831,11 @@ $j(document).ready(function(){
     });
 
     //default viewport sizes
-    gl.viewportHeight = 300;
-    gl.viewportWidth = 300;
+    gl.viewportHeight = 400;
+    gl.viewportWidth = 400;
 
-    $j('#earth-canvas')[0].width = 300;
-    $j('#earth-canvas')[0].height = 300;
+    $j('#earth-canvas')[0].width = gl.viewportHeight;
+    $j('#earth-canvas')[0].height = gl.viewportWidth;
 
     eq = "z = 2.0 * cos(t*time + x + y) * (0.5 + (sin(x*x + y*x + t*time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(v*time)))) + g * 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0))";
     prob = new Problem(eq,[],true);
@@ -818,6 +848,27 @@ $j(document).ready(function(){
 
     $j('#providedEquations').change(function(e) { changeSelected(); });
 
+    //now do the random room thing
+
+    //first check if we are being linked to a room....
+    var href = window.location.href;
+
+    results = /room=(\w+)/.exec(href);
+    var room = null;
+    if(results)
+    {
+        room = results[1];
+        joinRoom(room);
+    }
+    else
+    {
+        //make room
+        room = randomString(5);
+        makeAndJoinRoom(room);
+    }
+
+    //put it in our history bar
+    history.pushState(null,'Genetic GPU!',"?room=" + room);
 });
 
 </script>
@@ -840,7 +891,7 @@ $j(document).ready(function(){
             <option value="z = 2.0 * cos(t*time + x + y) * (0.5 + (sin(x*x + y*x + t*time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(v*time)))) + g * 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0));">Vanilla</option>
             <option value="z = a*sin(5.5*x - t*time)*cos(5.0*y + t*time)+b*0.5*x*x+ c*abs(y) - 1.0">Wavy</option>
             <option value="z = a*sin(pow(x,2.0) + pow(y,2.0) + t*time) / (abs(x*y) + 1.0) + c*0.65 * (x*x/9.0 + y*y/9.0)">Fun one</option>
-            <option value="z = 0.0 - a*sin(x*y + t*time*0.7) + b*(cos(v*time*0.3) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + c*0.5*cos(x * y * 3.0 + t*time * 1.0) + x*0.1 + d*(pow(x/3.0,2.0) + pow(y/3.0,2.0))">Mini Boss</option>
+            <option value="z = 0.0 - a*0.5*sin(x*y + t*time*0.7) + b*(cos(v*time*0.3) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + c*0.5*cos(x * y * 3.0 + t*time * 1.0) + x*0.1 + d*(pow(x/3.0,2.0) + pow(y/3.0,2.0))">Mini Boss</option>
             <option value="z = a*1.0*sin(pow(x,3.0) + pow(y,3.0) + t*time*0.5) / (abs(x*y) + 2.0) + b*1.65 * (x*x/9.0 + y*y/9.0)">Lasagna</option>
         </select>
        <a onclick="javascript:solver.baseSearchWindow.reset();" class="uiButtonWhite" style="display:inline-block">Reset Window</a> 
