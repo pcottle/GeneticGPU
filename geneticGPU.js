@@ -179,7 +179,7 @@ SearchWindow.prototype.makeZoomWindow = function(centerPosition,percent) {
 };
 
 
-var Problem = function(equationString,userSpecifiedFixedVariables) {
+var Problem = function(equationString,userSpecifiedFixedVariables,fixAllBut2) {
 
     //here the equationString is the given equation we want to parse. the fixedVariables
     //are the variables we want fixed, aka gravity or conductivity or something else similar
@@ -237,7 +237,9 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
         allVariables.push(key);
     }
 
-    allVariables = allVariables.sort();
+    //sort so hopefully x and y are at the back
+    allVariables = allVariables.sort()
+    console.log("after sorting",allVariables);
 
     //we need to determine which are sample variables in the problem and which are 
     //fixed variables specified by the user.
@@ -257,6 +259,18 @@ var Problem = function(equationString,userSpecifiedFixedVariables) {
             sampleVariables.push(thisVar);
         }
     }
+
+    //also, there's an optional mode to fix all but 2 of the variables. so here...
+    if(fixAllBut2 && sampleVariables.length > 2)
+    {
+        var length = sampleVariables.length;
+        var sampleOnes = sampleVariables.slice(length-2);
+        var fixedOnes = sampleVariables.slice(0,length-2);
+
+        sampleVariables = sampleOnes;
+        fixedVariables = fixedVariables.concat(fixedOnes);
+    }
+
     console.log("all variables",allVariables);
     console.log("results: fixed",fixedVariables," sample", sampleVariables);
 
@@ -1704,7 +1718,7 @@ function doEarthFlyin() {
 
     scaleVariablesForTween = {'scale':scaleAmount};
 
-    ourScaleTween = new TWEEN.Tween(scaleVariablesForTween).to({'scale':0.04},tweenTime*1.5).onUpdate(scaleTweenUpdate);
+    ourScaleTween = new TWEEN.Tween(scaleVariablesForTween).to({'scale':0.03},tweenTime*1.5).onUpdate(scaleTweenUpdate);
     setTimeout('scaleTweenComplete()',tweenTime*0.5);
     ourScaleTween.easing(TWEEN.Easing.Quartic.EaseInOut);
     ourScaleTween.start();
