@@ -14,14 +14,14 @@ html,body {
     background: radial-gradient(center, ellipse cover, #555a5f 0%,#000000 90%);
     */
 
-background-image: -webkit-gradient(
-    linear,
+    background-image: -webkit-gradient(
+        linear,
         left bottom,
-            left top,
-                color-stop(0, rgb(0,102,204)),
-                        color-stop(0.5, rgb(0,0,0)),
-                            color-stop(1, rgb(0,102,204))
-                            );
+        left top,
+        color-stop(0, rgb(0,102,204)),
+        color-stop(0.5, rgb(0,0,0)),
+        color-stop(1, rgb(0,102,204))
+    );
 
     background: -moz-radial-gradient(center, ellipse cover, #0066cc 0%, #000000 90%);
     background: -webkit-gradient(radial, center center, 0px, center center, 100%, color-stop(0%,#0066cc), color-stop(90%,#000000));
@@ -72,7 +72,7 @@ background-image: -webkit-gradient(
 }
 
 h1, h2, h3, h4 {
-	margin: 0 0 5px 0;
+	margin: 0 0 15px 5px;
 	
 	color: #eee;
 	
@@ -86,8 +86,8 @@ h1, h2, h3, h4 {
 
 
 /*h1 { font-size: 136px; 	}*/
-h2 { font-size: 76px;	}
-h3 { font-size: 56px;	}
+h2 { font-size: 40px;	}
+h3 { font-size: 30px;	}
 h4 { font-size: 28px;	}
 
 p { font-size: 18px; }
@@ -399,10 +399,24 @@ h1 {
     box-shadow: 5px 5px 5px black;
 }
 
-#bottomControlHolder {
-    width:98%;
-    margin-left:auto;
+#equationControlHolder {
+    width:70%;
     margin-right:auto;
+}
+
+#minimumControlHolder {
+    width:25%;
+    position:absolute;
+    top:0px;
+    right:0px;
+}
+
+#minimumControlHolder > p {
+    margin:10px;
+    font-weight:bold;
+}
+
+.controlHolder {
 
     -moz-box-shadow: inset 0px 0px 10px #000000;
     -webkit-box-shadow: inset 0px 0px 10px #000000;

@@ -818,6 +818,80 @@ ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsTo
     return shaderObj;
 };
 
+//this class will take in minimums from both networking and the hosts and update the DOM when a new one is found.
+var MinimumSaver = function(problem) {
+    this.minHostPos = null;
+    this.minNetworkPos = null;
+    this.problem = problem;
+
+    this.minHostElem = $j('#hostMinimum')[0];
+    this.minNetworkElem  = $j('#networkMinimum')[0];
+
+    this.active = false;
+
+    var _this = this;
+    setTimeout(function() {
+        _this.active = true;
+    },3000);
+};
+
+MinimumSaver.prototype.isBetter = function(minOne,minTwo) {
+    //if our existing one is not defined, then its certainly better
+    if(!minTwo)
+    {
+        return true;
+    }
+
+    //similarly if we are replacing a valid with null, dont do that
+    if(!minOne)
+    {
+        return false;
+    }
+
+    //else, if our z is low
+    return minOne.z <= minTwo.z;
+};
+
+MinimumSaver.prototype.updateDom = function(elem,pos,time) {
+
+    //look through our sample variables and post which ones
+    var domHtml = "";
+
+    var sampleVars = this.problem.baseSearchWindow.sampleVars.concat(['z']);
+
+    for(var i = 0; i < sampleVars.length; i++)
+    {
+        var name = sampleVars[i];
+        var value = pos[name];
+        domHtml = domHtml + "<p>" + name + ": " + String(value).substring(0,5);
+        domHtml = domHtml + "</p>";
+    }
+    //also need a time
+    var now = new Date();
+    domHtml = domHtml + "At time " + String(now);
+
+    $j(elem).html(domHtml);
+};
+
+MinimumSaver.prototype.postHostResults = function(newMinPos) {
+    if(!this.active)
+    {
+        return;
+    }
+
+    if(!this.isBetter(newMinPos,this.minHostPos))
+    {
+        //bounce out, because its not better
+        return;
+    }
+
+    //we have a new minimum!
+    this.minHostPos = newMinPos;
+
+    //update the dom
+    this.updateDom(this.minHostElem,this.minHostPos);
+};
+
 
 //the SOLVER, it will solve for the minimum given a problem / window and everything :D
 var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
@@ -825,6 +899,8 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     this.baseSearchWindow = problem.baseSearchWindow;
     this.searchWindow2d = problem.searchWindow2d;
     this.graphicalShader = graphicalShader;
+
+    this.minSaver = new MinimumSaver(problem);
 
     this.zoomWindows = [];
 
@@ -847,7 +923,7 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     });
 
     //also clear canvases
-    $j(',screenshotCanvas').remove();
+    $j('.screenshotCanvas').remove();
 
     //initial set of the window on the shaders
     this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
@@ -912,7 +988,11 @@ Solver.prototype.solvePass = function() {
 
     if(numSampleVars == 2)
     {
-        return this.easy2dSolveWrapper();
+        results = this.easy2dSolveWrapper();
+
+        this.minSaver.postHostResults(results.minFound);
+
+        return results.ballPos;
     }
 };
 
@@ -983,6 +1063,8 @@ Solver.prototype.easy2dSolveWrapper = function() {
 
     //first do a coarsely-sampled 2d solve
     var results = this.easyUniformSolve();
+    //var results = this.easyRandomSolve();
+    //SWITCH: if we want uniform or random solve
 
     //if it breaks, go reset the window
     if(!results)
@@ -1040,7 +1122,7 @@ Solver.prototype.easy2dSolveWrapper = function() {
 
     //reset our search window
     this.setWindowOnShaders(this.uniformShaders,this.problem.baseSearchWindow);
-    return ballPos;
+    return {'ballPos':ballPos,'minFound':pos};
 };
 
 
@@ -1072,19 +1154,26 @@ Solver.prototype.updateTimeOnAll = function() {
     }
 };
 
-Solver.prototype.easyUniformSolve = function(searchWindowAttributes) {
 
-    shouldSwitchToBuffer = true;
+Solver.prototype.easyRandomSolve = function(searchWindowAttributes) {
+    this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
+
+    return this.executeShadersAndExtractors(searchWindowAttributes,this.randomShaders,this.randomExtractors);
+};
+
+Solver.prototype.easyUniformSolve = function(searchWindowAttributes) {
+    return this.executeShadersAndExtractors(searchWindowAttributes,this.uniformShaders,this.uniformExtractors);
+};
+
+
+Solver.prototype.executeShadersAndExtractors = function(searchWindowAttributes,whichShaders, whichExtractors) {
+
     var offSet = 0; //an offset for the screenshots
 
-    if(shouldSwitchToBuffer)
-    {
-        //switch to the frame buffer that's hidden! so we can do our drawing for solving here
-        gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
-
-        gl.viewport(0,0, this.frameBuffer.width, this.frameBuffer.height);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    }
+    //switch to the frame buffer that's hidden! so we can do our drawing for solving here
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
+    gl.viewport(0,0, this.frameBuffer.width, this.frameBuffer.height);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     //this function is only called when there are 2 sample variables, so we can use the baseSearchWindow
     if(!searchWindowAttributes)
@@ -1098,41 +1187,38 @@ Solver.prototype.easyUniformSolve = function(searchWindowAttributes) {
     //and then pass that into the extractor to get the positions
     var totalMinPosition = {};
 
-    for(var passIndex = 0; passIndex < this.uniformShaders.length; passIndex++)
+    for(var passIndex = 0; passIndex < whichShaders.length; passIndex++)
     {
         //call CLEAR on the frame buffer between each draw
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         //draws the surface with the right coloring
-        this.uniformShaders[passIndex].drawGrid();
+        whichShaders[passIndex].drawGrid();
         
         //get the RGB on the current frame buffer for this surface
-        if(shouldSwitchToBuffer)
+        var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
+
+        //interactive mode
+        dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex+offSet);
+        
+        if(colors.noneFound) //this occurs for a while once we boot, so only return null after a 3 seconds
         {
-            var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
-
-            //interactive mode
-            dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex+offSet);
-            
-            if(colors.noneFound) //this occurs for a while once we boot, so only return null after a 3 seconds
+            var now = new Date();
+            var nowTime = now.getTime();
+            if(nowTime - this.createTime > 3 * 1000)
             {
-                var now = new Date();
-                var nowTime = now.getTime();
-                if(nowTime - this.createTime > 3 * 1000)
-                {
-                    console.warn("none found after bootup time, resetting window :O");
-                    return null;
-                }
+                console.warn("none found after bootup time, resetting window :O");
+                return null;
             }
-
-            //also go color in the area we found
-            var cvs = $j('#screenshot' + String(passIndex + offSet))[0];
-            var ctx = cvs.getContext('2d');
-            ctx.fillStyle = "rgb(255,255,255)";
-            ctx.fillRect(colors.col - 2,this.frameBuffer.height - colors.row - 2,4,4);
         }
 
-        var thesePositions = this.uniformExtractors[passIndex](colors,searchWindowAttributes);
+        //also go color in the area we found
+        var cvs = $j('#screenshot' + String(passIndex + offSet))[0];
+        var ctx = cvs.getContext('2d');
+        ctx.fillStyle = "rgb(255,255,255)";
+        ctx.fillRect(colors.col - 2,this.frameBuffer.height - colors.row - 2,4,4);
+
+        var thesePositions = whichExtractors[passIndex](colors,searchWindowAttributes);
 
         //merge these positions into the global solution
         for(key in thesePositions)
@@ -1151,11 +1237,13 @@ Solver.prototype.easyUniformSolve = function(searchWindowAttributes) {
     var estZ = colors.yHeight * 2 + -1;
     totalMinPosition.zOrig = estZ;
 
+    var minZ = searchWindowAttributes.minZ.val;
+    var maxZ = searchWindowAttributes.maxZ.val;
+
+    var trueZ = colors.yHeight * (maxZ - minZ) + minZ;
+
     //switch back from the frame buffer
-    if(shouldSwitchToBuffer)
-    {
-        gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 
     //return the results
     return {'minPos':totalMinPosition,'increaseZ':shouldIncreaseZ,'decreaseZ':shouldDecreaseZ};
@@ -1642,6 +1730,8 @@ function drawScene2() {
     cameraPerspectiveClear();
     translateAndRotate();
 
+    //TODO: differentiate between time-dependent and non-time dependent problems, aka
+
     ballUpdates = {
         'pMatrix':{type:'4fm','val':pMatrix},
         'mvMatrix':{type:'4fm','val':mvMatrix},
@@ -1654,14 +1744,6 @@ function drawScene2() {
     solver.graphicalDraw(cameraUpdates);
 
     ballShaderObj.drawGrid(ballUpdates);
-
-    /*
-    var rightnow = new Date();
-    if(rightnow.getTime() % 123 == 0)
-    {
-        console.log("min pos is", pos);
-    }
-    */
 
 }
 
