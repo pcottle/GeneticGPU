@@ -146,6 +146,10 @@ SearchWindow.prototype.makeZoomWindow = function(centerPosition,percent) {
     //attribute. it has direct access to the value, NOT the typical "type/val" object
     for(key in centerPosition)
     {
+        if(key == 'z')
+        {
+            continue;
+        }
         if(key != 'z' && this.sampleVars.indexOf(key) == -1)
         {
             continue;
@@ -827,12 +831,11 @@ var MinimumSaver = function(problem) {
     this.minHostElem = $j('#hostMinimum')[0];
     this.minNetworkElem  = $j('#networkMinimum')[0];
 
-    this.active = false;
+    this.active = true;
 
-    var _this = this;
-    setTimeout(function() {
-        _this.active = true;
-    },3000);
+    var blankMin = "<p>Unknown</p>";
+    $j(this.minHostElem).html(blankMin);
+    $j(this.minNetworkElem).html(blankMin);
 };
 
 MinimumSaver.prototype.isBetter = function(minOne,minTwo) {
@@ -852,6 +855,14 @@ MinimumSaver.prototype.isBetter = function(minOne,minTwo) {
     return minOne.z <= minTwo.z;
 };
 
+MinimumSaver.prototype.isStrictlyBetter = function(minOne,minTwo) {
+    if(!minOne || !minTwo)
+    {
+        return false;
+    }
+    return minOne.z < minTwo.z;
+};
+
 MinimumSaver.prototype.updateDom = function(elem,pos,time) {
 
     //look through our sample variables and post which ones
@@ -868,7 +879,8 @@ MinimumSaver.prototype.updateDom = function(elem,pos,time) {
     }
     //also need a time
     var now = new Date();
-    domHtml = domHtml + "At time " + String(now);
+    domHtml = domHtml + "At time " + String(now.getHours()) + ":" + String(now.getMinutes());
+    domHtml = domHtml + ":" + String(now.getSeconds()) + ":" + String(now.getMilliseconds());
 
     $j(elem).html(domHtml);
 };
@@ -885,13 +897,45 @@ MinimumSaver.prototype.postHostResults = function(newMinPos) {
         return;
     }
 
+    //we want to update the dom when we reach an equivalent min, but
+    //we only want to broadcast when its strictly better
+    var trulyBetter = this.isStrictlyBetter(newMinPos,this.minHostPos);
+
     //we have a new minimum!
     this.minHostPos = newMinPos;
 
     //update the dom
     this.updateDom(this.minHostElem,this.minHostPos);
+
+    //set a timer to tell the network
+    if(trulyBetter && !this.broadcastTimer)
+    {
+        var _this = this;
+        this.broadcastTimer = setTimeout(function() {
+            _this.broadcastMin();
+        },1000);
+    }
 };
 
+MinimumSaver.prototype.broadcastMin = function() {
+    this.broadcastTimer = null;
+    topNotify("broadcasted");
+
+    this.receiveNetworkMin(this.minHostPos);
+    //NOWJS TODO NODEJS: broadcast this minimum to our room
+};
+
+MinimumSaver.prototype.receiveNetworkMin = function(networkMin) {
+    if(!this.active) { return; }
+    if(!this.isBetter(networkMin,this.minNetworkPos))
+    {  
+        return;
+    }
+
+    this.minNetworkPos = networkMin;
+
+    this.updateDom(this.minNetworkElem,this.minNetworkPos);
+};
 
 //the SOLVER, it will solve for the minimum given a problem / window and everything :D
 var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
@@ -1094,6 +1138,7 @@ Solver.prototype.easy2dSolveWrapper = function() {
     if(!asd) //debug
     {
         console.log("zoompos",zoomPos," and pos", pos);
+        console.log("zoom window",zoomWindow,'normal window',this.baseSearchWindow);
         asd = true;
     }
 
@@ -1241,6 +1286,7 @@ Solver.prototype.executeShadersAndExtractors = function(searchWindowAttributes,w
     var maxZ = searchWindowAttributes.maxZ.val;
 
     var trueZ = colors.yHeight * (maxZ - minZ) + minZ;
+    totalMinPosition.z = trueZ;
 
     //switch back from the frame buffer
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);

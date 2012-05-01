@@ -412,8 +412,16 @@ h1 {
 }
 
 #minimumControlHolder > p {
-    margin:10px;
+    margin:4px;
     font-weight:bold;
+}
+
+#hostMinimum > p {
+    margin:1px;
+}
+
+#networkMinimum > p {
+    margin:1px;
 }
 
 .controlHolder {
@@ -441,7 +449,7 @@ h1 {
 }
 
 #equationStringTextArea {
-    width:80%;
+    width:70%;
 }
 .validEquation {
     border:5px solid blue;
