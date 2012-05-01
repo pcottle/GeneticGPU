@@ -241,6 +241,11 @@ var Problem = function(equationString,userSpecifiedFixedVariables,fixAllBut2) {
     allVariables = allVariables.sort()
     console.log("after sorting",allVariables);
 
+    if(allVariables.length < 2)
+    {
+        throw new Error("Specify at least 2 variables!");
+    }
+
     //we need to determine which are sample variables in the problem and which are 
     //fixed variables specified by the user.
     var sampleVariables = [];
@@ -420,9 +425,11 @@ Problem.prototype.renderControlHTML = function() {
         var line = "<p>" + varName + ": Value of ";
         line = line + '<span class="frobSpanner" id="' + key + '">' + String(varValue) + '</span>';
         line = line + "</p>";
-        fixedVariablesHTML += line;
 
-        //TODO: also need checkbox here to fix / unfix
+        line = line + '<a class="uiButtonWhite unfixButton" style="display:inline-block;" id="';
+        line = line + varName + '">Unfix</a>';
+
+        fixedVariablesHTML += line;
     }
 
     $j('#fixedVariablesList').html(fixedVariablesHTML);
@@ -832,6 +839,20 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     this.randomShaders = randomObjects.shaders;
     this.randomExtractors = randomObjects.extractors;
 
+    this.createFrameBuffer();
+
+    var _this = this;
+    $j('.unfixButton').live('mousedown',function(e) {
+        _this.unfixVariable(e);
+    });
+
+    //initial set of the window on the shaders
+    this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+    this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
+}
+
+Solver.prototype.createFrameBuffer = function() {
+
     //ok lets make a frame buffer for our own solving reasons
     this.frameBuffer = gl.createFramebuffer();
     //default frame buffer sizes (framebuffer sizes)
@@ -866,118 +887,160 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
 };
 
+Solver.prototype.unfixVariable = function(e) {
+    //make a new problem without this variable as a fixed variable and then
+    //overwrite the global variable
+    console.log(e);
+};
+
 Solver.prototype.graphicalDraw = function(cameraUpdates) {
     this.graphicalShader.drawGrid(cameraUpdates);
 };
 
 Solver.prototype.solvePass = function() {
-    //a lot of strategy code will go here eventually
 
-    if(this.problem.baseSearchWindow.sampleVars.length > 2)
+    var numSampleVars = this.problem.baseSearchWindow.sampleVars.length;
+
+    //first, dispatch to the appropriate N-d wrappers
+    if(numSampleVars > 2)
     {
         throw new Error("sample vars more than 2 not supported yet!!");
     }
 
-    if(this.zoomWindows.length == 0)
+    if(numSampleVars == 2)
     {
-        //TODO: warning! this will update time on the basesearchwindow which very well could
-        //update it on the graphical shader as well. JS passes around references with objects
-        //and copying a searchwindow is difficult because of the float32array thing
-        this.updateTimeOnAll();
-        this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
-
-        //first do a coarsely-sampled 2d solve
-        var results = this.easy2dSolve();
-
-        //if it breaks, go reset the window
-        if(!results)
-        {
-            this.baseSearchWindow.reset();
-            this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
-            results = this.easy2dSolve();
-        }
-
-        if(!results) //if its still broken, we might be waiting for the gpu to buffer or something
-        {
-            return;
-        }
-
-        var pos = results.minPos;
-
-        //TODO: detect when we have missed our window
-        if(results.increaseZ)
-        {
-            console.log("increasing z");
-            this.baseSearchWindow.windowAttributes.minZ.val += 1;
-            this.baseSearchWindow.windowAttributes.maxZ.val += 1.1;
-
-        } else if (results.decreaseZ) {
-            console.log("decreasing z");
-            this.baseSearchWindow.windowAttributes.minZ.val -= 1;
-            this.baseSearchWindow.windowAttributes.maxZ.val -= 0.9;
-        }
-        if(results.decreaseZ || results.increaseZ)
-        {
-            //update the control UI
-            $j('#minZ').html(String(this.baseSearchWindow.windowAttributes.minZ.val).substring(0,5));
-            $j('#maxZ').html(String(this.baseSearchWindow.windowAttributes.maxZ.val).substring(0,5));
-        }
-
-        //if we should extend z, just subtract 0.5 for now
-
-        //then make a zoom window on this coarse solution and further zoom in
-        var zoomWindow = this.baseSearchWindow.makeZoomWindow(pos,0.05);
-        this.setWindowOnShaders(this.uniformShaders,zoomWindow);
-
-        //get the 2d solve results with the zoomed window
-        var zoomResults = this.easy2dSolve(zoomWindow.windowAttributes);
-        var zoomPos = zoomResults.minPos;
-
-        if(!asd) //debug
-        {
-            console.log("zoompos",zoomPos," and pos", pos);
-            asd = true;
-        }
-
-        pos.x = zoomPos.x;
-        pos.y = zoomPos.y;
-
-        var minX = this.baseSearchWindow.windowAttributes.minX.val;
-        var maxX = this.baseSearchWindow.windowAttributes.maxX.val;
-
-        var minY = this.baseSearchWindow.windowAttributes.minY.val;
-        var maxY = this.baseSearchWindow.windowAttributes.maxY.val;
-
-        //TODO: this needs to be automated!!!!!
-        pos.xOrig = (zoomPos.x - minX)/(maxX - minX) * 2 - 1;
-        pos.yOrig = (zoomPos.y - minY)/(maxY - minY) * 2 - 1;
-
-        //now go ahead and update the original "pos" result with the more accurate results,
-        //both for the x and y but also reconstructing the xOrig and yOrig
-
-        this.setWindowOnShaders(this.uniformShaders,this.problem.baseSearchWindow);
-        return pos;
+        return this.easy2dSolveWrapper();
     }
-    else
-    {
-        //var zoomWindow = this.zoomWindows.pop();
-        var zoomWindow = this.zoomWindows[0];
-
-        this.setWindowOnShaders(this.uniformShaders,zoomWindow);
-
-        var results = this.easy2dSolve();
-        var pos = results.minPos;
-        console.log("got this as the result",pos);
-
-        return pos;
-    }
-
-    console.log("should never execute");
-
-
-    //TODO: extend z on all windows if necessary
-    return this.easy2dSolve();
 };
+
+Solver.prototype.handleExtendZ = function(results) {
+
+    if(results.increaseZ)
+    {
+        console.log("increasing z");
+        this.baseSearchWindow.windowAttributes.minZ.val += 1;
+        this.baseSearchWindow.windowAttributes.maxZ.val += 1.1;
+
+    } else if (results.decreaseZ) {
+        console.log("decreasing z");
+        this.baseSearchWindow.windowAttributes.minZ.val -= 1;
+        this.baseSearchWindow.windowAttributes.maxZ.val -= 0.9;
+    }
+    if(results.decreaseZ || results.increaseZ)
+    {
+        //update the control UI
+        $j('#minZ').html(String(this.baseSearchWindow.windowAttributes.minZ.val
+                        ).substring(0,5));
+        $j('#maxZ').html(String(this.baseSearchWindow.windowAttributes.maxZ.val
+                        ).substring(0,5));
+    }
+};
+
+Solver.prototype.easy1dSolveWrapper = function() {
+    this.updateTimeOnAll();
+
+    var results = this.easyUniformSolve();
+
+    this.handleExtendZ(results);
+    if(!results)
+    {
+        this.baseSearchWindow.reset();
+        this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+        results = this.easyUniformSolve();
+    }
+    if(!results)
+    {
+        return; //bootup time issue
+    }
+
+    //ok now actually set the position of the ball (along x)
+    var minPos = results.minPos;
+
+    var ballPos = {};
+    ballPos.zOrig = minPos.zOrig;
+
+    var sampleVarName = this.baseSearchWindow.sampleVars[0];
+    var sv = sampleVarName;
+    var maxSv = "max" + sv.toUpperCase();
+    var minSv = "min" + sv.toUpperCase();
+
+    var maxSvVal = this.baseSearchWindow.windowAttributes[maxSv].val;
+    var minSvVal = this.baseSearchWindow.windowAttributes[minSv].val;
+
+    ballPos.xOrig = (minPos[sv] - minSvVal) / (maxSvVal - minSvVal) * 2 - 1;
+    ballPos.yOrig = 0;
+
+    return ballPos;
+};
+
+Solver.prototype.easy2dSolveWrapper = function() {
+
+    this.updateTimeOnAll();
+    this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+
+    //first do a coarsely-sampled 2d solve
+    var results = this.easyUniformSolve();
+
+    //if it breaks, go reset the window
+    if(!results)
+    {
+        this.baseSearchWindow.reset();
+        this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+        results = this.easyUniformSolve();
+    }
+
+    if(!results) //if its still broken, we might be waiting for the gpu to buffer or something
+    {
+        return;
+    }
+
+    this.handleExtendZ(results);
+
+    var pos = results.minPos;
+
+    //then make a zoom window on this coarse solution and further zoom in
+    var zoomWindow = this.baseSearchWindow.makeZoomWindow(pos,0.05);
+    this.setWindowOnShaders(this.uniformShaders,zoomWindow);
+
+    //get the 2d solve results with the zoomed window
+    var zoomResults = this.easyUniformSolve(zoomWindow.windowAttributes);
+    var zoomPos = zoomResults.minPos;
+
+    if(!asd) //debug
+    {
+        console.log("zoompos",zoomPos," and pos", pos);
+        asd = true;
+    }
+
+    //now go ahead and update the original "pos" result with the more accurate results,
+    //both for the x and y but also reconstructing the xOrig and yOrig
+
+    pos.x = zoomPos.x;
+    pos.y = zoomPos.y;
+
+
+    ballPos = {};
+    ballPos.zOrig = pos.zOrig;
+    ballKeys = ['xOrig','yOrig'];
+
+    for(var i = 0; i < 2; i++)
+    {
+        var varName = this.baseSearchWindow.sampleVars[i];
+        var v = varName;
+        var minV = "min" + v.toUpperCase();
+        var maxV = "max" + v.toUpperCase();
+        var minVval = this.baseSearchWindow.windowAttributes[minV].val;
+        var maxVval = this.baseSearchWindow.windowAttributes[maxV].val;
+
+        ballPos[ballKeys[i]] = (pos[v] - minVval)/(maxVval - minVval) * 2 - 1;
+    }
+
+    //reset our search window
+    this.setWindowOnShaders(this.uniformShaders,this.problem.baseSearchWindow);
+    return ballPos;
+};
+
+
 
 Solver.prototype.setWindowOnShaders = function(shaders,searchWindow) {
     for(var i = 0; i < shaders.length; i++)
@@ -1006,7 +1069,8 @@ Solver.prototype.updateTimeOnAll = function() {
     }
 };
 
-Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
+Solver.prototype.easyUniformSolve = function(searchWindowAttributes) {
+
     shouldSwitchToBuffer = true;
     var offSet = 0; //an offset for the screenshots
 
@@ -1018,6 +1082,7 @@ Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
         gl.viewport(0,0, this.frameBuffer.width, this.frameBuffer.height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
+
     //this function is only called when there are 2 sample variables, so we can use the baseSearchWindow
     if(!searchWindowAttributes)
     {
@@ -1043,19 +1108,20 @@ Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
         {
             var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
 
+            //interactive mode
+            dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex+offSet);
+            
             if(colors.noneFound) //this occurs for a while once we boot, so only return null after a 3 seconds
             {
                 var now = new Date();
                 var nowTime = now.getTime();
                 if(nowTime - this.createTime > 3 * 1000)
                 {
-                    console.warn("none found after bootup time, resetting window");
+                    console.warn("none found after bootup time, resetting window :O");
                     return null;
                 }
             }
 
-            //interactive mode
-            dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex+offSet);
             //also go color in the area we found
             var cvs = $j('#screenshot' + String(passIndex + offSet))[0];
             var ctx = cvs.getContext('2d');
@@ -1077,7 +1143,8 @@ Solver.prototype.easy2dSolve = function(searchWindowAttributes) {
     var shouldDecreaseZ = colors.yHeight < 0.2;
     var shouldIncreaseZ = colors.yHeight > 0.8;
 
-    //estimate the z coordinate for putting the ball in the right place
+    //estimate the z coordinate for putting the ball in the right place. this is easy and
+    //doesn't refer to the window attributes
     var estZ = colors.yHeight * 2 + -1;
     totalMinPosition.zOrig = estZ;
 
@@ -1625,7 +1692,7 @@ function buildStandardMatrices() {
     mat4.multiplyVec3(newRot,secondRotAxis,result);
 
     mat4.rotate(newRot,degToRad(-90), [result[0],result[1],result[2]]);
-    mat4.rotate(newRot,degToRad(0), [0,1,0]);
+    mat4.rotate(newRot,degToRad(0.0), [0,1,0]);
 
     var standardScale = 0.04;
     mat4.scale(standardMoveMatrix,[standardScale,standardScale,standardScale]);

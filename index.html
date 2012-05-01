@@ -570,6 +570,7 @@ function buildProblem(equationString) {
     } catch(e) {
         console.log("NEW PROBLEM FAILED");
         console.log(String(e));
+        topNotify(String(e));
         return null;
     }
 
@@ -749,7 +750,7 @@ function stopLoading() {
 
 
 function topNotify(theText) {
-    topNotifyHtml("<h1>" + theText + "</h1>");
+    topNotifyHtml('<h2 style="font-size:20px">' + theText + "</h2>");
 }
 
 function topNotifyHtml(theText) {
