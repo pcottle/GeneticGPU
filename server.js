@@ -1,28 +1,8 @@
 var fs = require('fs');
 
 var server = require('http').createServer(function(req, response){
-    console.log('Got a request for',req.url);
-    //landing page -> give landing page
-    var pageToGive;
 
-    if(req.url == '/')
-    {
-        pageToGive = '/index.html';
-    }
-    else
-    {
-        pageToGive = req.url;
-    }
-    console.log("Trying to get page",pageToGive);
-
-    if(!pageToGive) // aka for favicons
-    {
-        response.writeHead(404, {'Content-Type':'text/html'});
-        response.write("Not found!");
-        response.end();
-        console.log("page ", req.url, "not found");
-        return;
-    }
+    var pageToGive = '/index.html';
 
     fs.readFile(__dirname+pageToGive, function(err, data){
 
@@ -53,7 +33,9 @@ nowjs.on('disconnect', function(){
 everyone.now.changeRoom = function(newRoom){
     nowjs.getGroup(this.now.room).removeUser(this.user.clientId);
     nowjs.getGroup(newRoom).addUser(this.user.clientId);
+
     this.now.room = newRoom;
+
     this.now.receiveMessage("SERVER", "You're now in " + this.now.room);
     console.log(this.now.name, "joined the room ", this.now.room);
 }
@@ -61,3 +43,4 @@ everyone.now.changeRoom = function(newRoom){
 everyone.now.distributeMessage = function(message){
     nowjs.getGroup(this.now.room).now.receiveMessage(this.now.name, message);
 };
+
