@@ -1,4 +1,5 @@
 ﻿var fs = require('fs');
+
 var server = require('http').createServer(function(req, response){
   fs.readFile(__dirname+'/multiroomchat.html', function(err, data){
     response.writeHead(200, {'Content-Type':'text/html'}); 
@@ -7,8 +8,9 @@ var server = require('http').createServer(function(req, response){
   });
 });
 
-server.listen(8080);
-console.log("server listening on port 8080");
+var port = process.env.PORT || 8080;
+server.listen(port);
+console.log("server listening on port " + String(port));
 
 var nowjs = require("now");
 var everyone = nowjs.initialize(server, {socketio: {transports: ['xhr-polling', 'jsonp-polling']}});
