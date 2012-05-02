@@ -3,16 +3,7 @@
 var server = require('http').createServer(function(req, response){
   fs.readFile(__dirname+'/multiroomchat.html', function(err, data){
     response.writeHead(200, {'Content-Type':'text/html'}); 
-    //response.write(data);  
-    response.write("hi");
-    if(err)
-    {
-        console.log("error!!",err);
-        response.write(String(err));
-    }
-    console.log(data);
-    console.log(__dirname);
-
+    response.write(data);  
     response.end();
   });
 });
