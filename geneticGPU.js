@@ -120,6 +120,14 @@ SearchWindow.prototype.reset = function() {
     this.windowAttributes['mvMatrix'] = {type:'4fm',val:standardMoveMatrix};
 };
 
+SearchWindow.prototype.divideUpSearchSpace = function(numInGroup,totalNumInGroup,minVal,maxVal) {
+    //we will divide up the first sample var min / max bounds
+
+    range = maxVal - minVal;
+
+
+};
+
 SearchWindow.prototype.getAllVariables = function() {
     return this.fixedVars.concat(this.sampleVars);
 };
@@ -919,7 +927,6 @@ MinimumSaver.prototype.postHostResults = function(newMinPos) {
 
 MinimumSaver.prototype.broadcastMin = function() {
     this.broadcastTimer = null;
-    topNotify("broadcasted");
 
     this.receiveNetworkMin(this.minHostPos);
     //NOWJS TODO NODEJS: broadcast this minimum to our room
@@ -1033,11 +1040,25 @@ Solver.prototype.solvePass = function() {
     if(numSampleVars == 2)
     {
         results = this.easy2dSolveWrapper();
-
-        this.minSaver.postHostResults(results.minFound);
-
-        return results.ballPos;
     }
+    else if(numSampleVars > 2)
+    {
+        results = this.nDSolveWrapper();
+    }
+
+    this.minSaver.postHostResults(results.minFound);
+
+    return results.ballPos;
+};
+
+Solver.prototype.nDSolveWrapper = function() {
+    /* heres the deal. we kinda want to randomly n-d solve to get an
+       investigation point, and then uniformly "zoom" on that investigation point
+       to investigate and get a minimum.
+
+
+       */
+
 };
 
 Solver.prototype.handleExtendZ = function(results) {
@@ -1063,43 +1084,6 @@ Solver.prototype.handleExtendZ = function(results) {
     }
 };
 
-Solver.prototype.easy1dSolveWrapper = function() {
-    this.updateTimeOnAll();
-
-    var results = this.easyUniformSolve();
-
-    this.handleExtendZ(results);
-    if(!results)
-    {
-        this.baseSearchWindow.reset();
-        this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
-        results = this.easyUniformSolve();
-    }
-    if(!results)
-    {
-        return; //bootup time issue
-    }
-
-    //ok now actually set the position of the ball (along x)
-    var minPos = results.minPos;
-
-    var ballPos = {};
-    ballPos.zOrig = minPos.zOrig;
-
-    var sampleVarName = this.baseSearchWindow.sampleVars[0];
-    var sv = sampleVarName;
-    var maxSv = "max" + sv.toUpperCase();
-    var minSv = "min" + sv.toUpperCase();
-
-    var maxSvVal = this.baseSearchWindow.windowAttributes[maxSv].val;
-    var minSvVal = this.baseSearchWindow.windowAttributes[minSv].val;
-
-    ballPos.xOrig = (minPos[sv] - minSvVal) / (maxSvVal - minSvVal) * 2 - 1;
-    ballPos.yOrig = 0;
-
-    return ballPos;
-};
-
 Solver.prototype.easy2dSolveWrapper = function() {
 
     this.updateTimeOnAll();
@@ -1107,7 +1091,10 @@ Solver.prototype.easy2dSolveWrapper = function() {
 
     //first do a coarsely-sampled 2d solve
     var results = this.easyUniformSolve();
-    //var results = this.easyRandomSolve();
+    if(theSwitch)
+    {
+        results = this.easyRandomSolve();
+    }
     //SWITCH: if we want uniform or random solve
 
     //if it breaks, go reset the window
@@ -1147,6 +1134,7 @@ Solver.prototype.easy2dSolveWrapper = function() {
 
     pos.x = zoomPos.x;
     pos.y = zoomPos.y;
+    pos.z = zoomPos.z;
 
 
     ballPos = {};
@@ -1184,18 +1172,25 @@ Solver.prototype.updateTimeOnAll = function() {
     //if the problem wants time in order to drive the simulation, 
     //go ahead and buffer it onto all the shaders i contain
 
-    if(this.problem.wantsTime)
+    var now = new Date();
+    var deltaT = (now.getTime() - startTime) / 1000.0;
+
+    //here we need to "reset" the time if our delta T gets too high
+    //because the pseudo random number generator starts to bias towards 0 :(
+
+    if(deltaT > 30)
     {
-        var now = new Date();
-        var deltaT = (now.getTime() - startTime) / 1000.0;
-        for(var i = 0; i < this.uniformShaders.length; i++)
-        {
-            this.uniformShaders[i].updateTime(deltaT);
-        }
-        for(var i = 0; i < this.randomShaders.length; i++)
-        {
-            this.randomShaders[i].updateTime(deltaT);
-        }
+        startTime = now.getTime();
+        deltaT = 0;
+    }
+
+    for(var i = 0; i < this.uniformShaders.length; i++)
+    {
+        this.uniformShaders[i].updateTime(deltaT);
+    }
+    for(var i = 0; i < this.randomShaders.length; i++)
+    {
+        this.randomShaders[i].updateTime(deltaT);
     }
 };
 
@@ -1794,6 +1789,7 @@ function drawScene2() {
 }
 
 var asd = true;
+var theSwitch = false;
 
 function cameraPerspectiveClear() {
 
