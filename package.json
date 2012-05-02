@@ -1,7 +1,16 @@
 {
-	"name":"server",
-	"version":"0.1.0",
-	"dependencies":{
-		"now":"0.7.5"
-	}
-}
+  "name": "geneticGpuServer",
+  "version": "0.2.6",
+  "author": "Peter Cottle petermcottle@gmail.com",
+  "description": "Networking for genetic GPU",
+  "keywords": [
+    "nowjs",
+    "geneticgpu"
+  ],
+  "dependencies" : {
+    "now"     :  ">=0.7.5"
+  },
+  "engine": {
+    "node": ">=0.4"
+  }
+} 
