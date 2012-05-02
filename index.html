@@ -18,8 +18,10 @@
 <script type="text/javascript" src="webgl-utils.js"></script>
 <script type="text/javascript" src="Tween.js"></script>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script type="text/javascript" src="http://furious-leaf-8323.herokuapp.com/nowjs/now.js"></script>
 <!--<script type="text/javascript" src="jquery-1.6.1.min.js"></script>-->
 <script type="text/javascript" src="geneticGPU.js"></script>
+<script type="text/javascript" src="nowStuff.js"></script>
 
 <script id="shader-simple-vs" type="x-shader/x-vertex">
 attribute vec3 aVertexPosition;
@@ -490,23 +492,6 @@ frobController.prototype.frobMouseMove = function(e) {
     $j(this.srcElement).html(String(newVal).substring(0,5));
 };
 
-function joinRoom(roomName) {
-    //NODEJS TODO NOWJS
-
-
-}
-
-function makeAndJoinRoom(roomName) {
-    //NODEJS TODO NOWJS
-
-}
-
-
-function changeRoomEquation(equationString) {
-
-
-}
-
 
 function zeroPad(num,count)
 {
@@ -808,8 +793,6 @@ $j(document).ready(function(){
     TWEEN.start();
     webGLStart();
 
-    //$j(window).resize(function(){resizeWindow();});
-    //initial resize
     resizeWindow();
 
     $j('#earth-canvas').bind('mousewheel',onMouseWheel);
@@ -823,10 +806,11 @@ $j(document).ready(function(){
 
     //frob event handlers
     $j('.frobSpanner').live('mousedown',function(e) {
-                            frob.frobMouseDown(e);
+        frob.frobMouseDown(e);
     });
+
     $j(document).bind('mousemove',function(e) {
-                            frob.frobMouseMove(e);
+        frob.frobMouseMove(e);
     });
 
     //default viewport sizes
@@ -840,34 +824,16 @@ $j(document).ready(function(){
     prob = new Problem(eq,[],true);
     template = new ShaderTemplateRenderer(prob);
     solver = template.solver; solver.solvePass(); 
-    drawScene = drawScene2;
 
     $j('#equationStringTextArea').keydown(function() { startOrResetTimeout(); });
     lastEquation = $j('#equationStringTextArea').val().replace(/\s/g,'');
 
     $j('#providedEquations').change(function(e) { changeSelected(); });
 
-    //now do the random room thing
 
-    //first check if we are being linked to a room....
-    var href = window.location.href;
+    //now do the node stuff if it is defined
 
-    results = /room=(\w+)/.exec(href);
-    var room = null;
-    if(results)
-    {
-        room = results[1];
-        joinRoom(room);
-    }
-    else
-    {
-        //make room
-        room = randomString(5);
-        makeAndJoinRoom(room);
-    }
-
-    //put it in our history bar
-    history.pushState(null,'Genetic GPU!',"?room=" + room);
+    doNodeStuff();
 });
 
 </script>

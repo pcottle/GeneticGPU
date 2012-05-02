@@ -929,7 +929,11 @@ MinimumSaver.prototype.broadcastMin = function() {
     this.broadcastTimer = null;
 
     this.receiveNetworkMin(this.minHostPos);
-    //NOWJS TODO NODEJS: broadcast this minimum to our room
+
+    if(window.now && window.now.distributeMinimum)
+    {
+        now.distributeMinimum(this.minHostPos); 
+    }
 };
 
 MinimumSaver.prototype.receiveNetworkMin = function(networkMin) {
@@ -1746,32 +1750,20 @@ function getArcAtMousePos(x,y) {
 
 function drawScene() {
 
-    cameraPerspectiveClear();
-    translateAndRotate();
-
     cameraUpdates = {
         'pMatrix':{type:'4fm','val':pMatrix},
         'mvMatrix':{type:'4fm','val':mvMatrix},
     };
 
-    //here, we draw the grid with our shader object
-    setObjUniforms();
-    blendShaderObj.drawGrid(cameraUpdates);
-}
-
-function drawScene2() {
-
-    cameraUpdates = {
-        'pMatrix':{type:'4fm','val':pMatrix},
-        'mvMatrix':{type:'4fm','val':mvMatrix},
-    };
+    if(!window.solver)
+    {
+        return;
+    }
 
     var pos = solver.solvePass();
 
     cameraPerspectiveClear();
     translateAndRotate();
-
-    //TODO: differentiate between time-dependent and non-time dependent problems, aka
 
     ballUpdates = {
         'pMatrix':{type:'4fm','val':pMatrix},

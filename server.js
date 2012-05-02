@@ -79,6 +79,7 @@ everyone.now.distributeMessage = function(message){
   nowjs.getGroup(this.now.room).now.receiveMessage(message);
 };
 
+
 everyone.now.distributeEquation = function(equationInfo) {
     nowjs.getGroup(this.now.room).now.receiveEquation(equationInfo);
 };
@@ -87,4 +88,7 @@ everyone.now.distributeNewTotal = function(totalCount) {
     nowjs.getGroup(this.now.room).now.receiveTotal(totalCount);
 };
 
+everyone.now.distributeMinimum = function(minimumPos) {
+    nowjs.getGroup(this.now.room).now.receiveNetworkMinimum(minimumPos);
+};
 
