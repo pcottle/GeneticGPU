@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>nowjs test</title>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+<script src="/nowjs/now.js"></script>
+
+<script>
+$(document).ready(function(){
+  now.receiveMessage = function(message){
+    $("#messages").append("<br>" + message);
+  };
+
+  now.receiveEquation = function(equationInfo) {
+      $('#messages').append("<br> NEW equation info!!" + JSON.stringify(equationInfo));
+  };
+
+  now.receiveTotal = function(totalCount) {
+      $('#messages').append("<br> NEW total is " + String(totalCount));
+      now.totalCount = totalCount;
+ };
+  
+  $("#send-button").click(function(){
+    now.distributeMessage($("#text-input").val());
+    $("#text-input").val("");
+  });
+  
+  $("#text-input").keypress(function (e) {
+    if (e.which && e.which === 13) {
+      $("#send-button").click();
+      return false;
+    }
+  });
+
+  $('#make-button').click(function() {
+      var roomName = $('#room-name').val();
+      if(!roomName || roomName.length == 0)
+      {
+          alert("Specify a room name!");
+          return;
+      }
+      now.makeRoom(roomName,{
+            equation:'x + y + z',
+            fixAllBut2:true
+      });
+
+  });
+
+  $('#change-button').click(function() {
+      var roomName = $('#room-name').val();
+      if(!roomName || roomName.length == 0)
+      {
+          alert("specify a room name!");
+          return;
+      }
+      now.changeRoom(roomName);
+  });
+  
+  $("#text-input").focus();
+});
+</script>
+</head>
+
+<body>
+
+<br>
+
+<div id="messages"><br>You're in room 1</div>
+<input type="text" id="text-input">
+<input type="button" value="Send" id="send-button">
+
+<input type="button" value="Change room" id="change-button">
+<input type="button" value="Make Room" id="make-button">
+<input type="text" id="room-name">
+
+</body>
+</html>
