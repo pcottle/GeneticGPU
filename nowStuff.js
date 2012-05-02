@@ -1,11 +1,15 @@
 function joinRoom(roomName) {
-    //join the room via node, and then update the equation with what the room has
+    //join the room via node
+    now.changeRoom(roomName);
+
+    //TODO: update equation here
 
 }
 
 function makeAndJoinRoom(roomName) {
-    //NODEJS TODO NOWJS
-
+    //make the room, now with a default equation
+    now.makeRoom(roomName,{'eq':'x + y'});
+    //will join automatically once its made
 }
 
 function changeRoomEquation(equationString) {
@@ -13,13 +17,15 @@ function changeRoomEquation(equationString) {
 }
 
 function doNodeStuff() {
-    if(!now)
+    if(!window.now)
     {
         alert("no now.js detected, entering no-network mode");
     }
 
-    defineNowFunctions();
-    roomUpdate();
+    now.ready(function() {
+        defineNowFunctions();
+        roomUpdate();
+    });
 }
 
 function defineNowFunctions() {
@@ -44,6 +50,7 @@ function defineNowFunctions() {
 
     now.receiveMessage = function(message) {
         //append to the message dom
+        console.log("NOW MESSAGE" + message);
     };
 }
 

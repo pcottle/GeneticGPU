@@ -17,9 +17,9 @@ var everyone = nowjs.initialize(server, {socketio: {transports: ['xhr-polling', 
 
 
 nowjs.on('connect', function(){
-  this.now.room = "room 1";
+  this.now.room = "lobby";
   nowjs.getGroup(this.now.room).addUser(this.user.clientId);
-  console.log("Joined: " + this.user.clientId);
+  console.log("Joined: " + this.user.clientId) + " to room" + this.now.room);
 });
 
 
@@ -32,16 +32,10 @@ roomInfo = {};
 
 everyone.now.makeRoom = function(newRoom,equationInfo) {
 
-    if(roomInfo[newRoom])
-    {
-        this.now.receiveMessage("That room is already created!");
-        return;
-    }
-
     //we need to initialize some things about roomInnfo
     roomInfo[newRoom] = equationInfo;
 
-    this.now.receiveMessage("You have now made the room " + newRoom + ", transferring you...");
+    this.now.receiveMessage("You have now made / updated the room " + newRoom + ", transferring you...");
     this.now.changeRoom(newRoom);
 };
 
@@ -89,6 +83,7 @@ everyone.now.distributeNewTotal = function(totalCount) {
 };
 
 everyone.now.distributeMinimum = function(minimumPos) {
+    console.log("distributing minimum to group ",this.now.room,"and this min",minimumPos);
     nowjs.getGroup(this.now.room).now.receiveNetworkMinimum(minimumPos);
 };
 

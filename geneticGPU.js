@@ -928,8 +928,6 @@ MinimumSaver.prototype.postHostResults = function(newMinPos) {
 MinimumSaver.prototype.broadcastMin = function() {
     this.broadcastTimer = null;
 
-    this.receiveNetworkMin(this.minHostPos);
-
     if(window.now && window.now.distributeMinimum)
     {
         now.distributeMinimum(this.minHostPos); 
