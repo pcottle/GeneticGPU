@@ -38,6 +38,10 @@ everyone.now.makeRoom = function(newRoom,equationInfo) {
     this.now.changeRoom(newRoom);
 };
 
+everyone.now.clearAllRooms = function() {
+    roomInfo = {};
+};
+
 everyone.now.changeEquation = function(roomName,equationInfo) {
     var room = roomName;
     

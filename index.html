@@ -616,7 +616,7 @@ function changeOurEquation(equationInfo) {
 
     try {
         console.log("making new prob with",equationString);
-        newProb = new Problem(equationString,[],true);
+        newProb = new Problem(equationString,fixedVars,fixAllBut2);
         newTemplate = new ShaderTemplateRenderer(newProb);
         newSolver = newTemplate.solver;
     } catch(e) {

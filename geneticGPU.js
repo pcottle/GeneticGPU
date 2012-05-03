@@ -108,6 +108,7 @@ SearchWindow.prototype.reset = function() {
 
     for(var j = 0; j < this.fixedVars.length; j++)
     {
+        console.log("adding this thing",this.fixedVars[j]);
         var fixedVal = "fixed" + this.fixedVars[j].toUpperCase() + "val";
         this.windowAttributes[fixedVal] = {type:'f',val:1};
 
@@ -297,8 +298,9 @@ var Problem = function(equationString,userSpecifiedFixedVariables,fixAllBut2) {
     }
 
     //also, there's an optional mode to fix all but 2 of the variables. so here...
-    if(fixAllBut2 && sampleVariables.length > 2)
+    if(fixAllBut2)
     {
+        console.log("fixing all but 2 as you specified");
         var length = sampleVariables.length;
         var sampleOnes = sampleVariables.slice(length-2);
         var fixedOnes = sampleVariables.slice(0,length-2);
@@ -324,7 +326,7 @@ var Problem = function(equationString,userSpecifiedFixedVariables,fixAllBut2) {
 
     while(sampleVariablesFor2d.length > 2)
     {
-        var thisVar = sampleVariablesFor2d.splice(0,1);
+        var thisVar = sampleVariablesFor2d.splice(0,1)[0];
         fixedVariablesFor2d.push(thisVar);
         variablesWeHadToFixFor2d.push(thisVar);
     }
@@ -998,7 +1000,7 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     $j('.screenshotCanvas').remove();
 
     //initial set of the window on the shaders
-    this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+    this.setWindowOnShaders(this.uniformShaders,this.searchWindow2d);
     this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
 }
 
@@ -1053,11 +1055,6 @@ Solver.prototype.solvePass = function() {
     var numSampleVars = this.problem.baseSearchWindow.sampleVars.length;
 
     //first, dispatch to the appropriate N-d wrappers
-    if(numSampleVars > 2)
-    {
-        throw new Error("sample vars more than 2 not supported yet!!");
-    }
-
     if(numSampleVars == 2)
     {
         results = this.easy2dSolveWrapper();
@@ -1075,11 +1072,22 @@ Solver.prototype.solvePass = function() {
 Solver.prototype.nDSolveWrapper = function() {
     /* heres the deal. we kinda want to randomly n-d solve to get an
        investigation point, and then uniformly "zoom" on that investigation point
-       to investigate and get a minimum.
-
-
+       to investigate and get a minimum. so it goes:
+            nD random -> nD uniform zoom
        */
 
+    this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
+
+    var results = this.easyRandomSolve();
+
+    this.handleExtendZ(results);
+
+    var pos = results.minPos;
+
+    //TODO -> zoom window and ND uniform zoom
+    var ballPos = this.convertBallPosition(pos);
+
+    return {'ballPos':ballPos,'minFound':pos};
 };
 
 Solver.prototype.handleExtendZ = function(results) {
@@ -1157,6 +1165,14 @@ Solver.prototype.easy2dSolveWrapper = function() {
     pos.y = zoomPos.y;
     pos.z = zoomPos.z;
 
+    var ballPos = this.convertBallPosition(pos);
+
+    //reset our search window
+    this.setWindowOnShaders(this.uniformShaders,this.problem.baseSearchWindow);
+    return {'ballPos':ballPos,'minFound':pos};
+};
+
+Solver.prototype.convertBallPosition = function(pos) {
 
     ballPos = {};
     ballPos.zOrig = pos.zOrig;
@@ -1173,12 +1189,8 @@ Solver.prototype.easy2dSolveWrapper = function() {
 
         ballPos[ballKeys[i]] = (pos[v] - minVval)/(maxVval - minVval) * 2 - 1;
     }
-
-    //reset our search window
-    this.setWindowOnShaders(this.uniformShaders,this.problem.baseSearchWindow);
-    return {'ballPos':ballPos,'minFound':pos};
+    return ballPos;
 };
-
 
 
 Solver.prototype.setWindowOnShaders = function(shaders,searchWindow) {
@@ -1551,27 +1563,6 @@ function mvPopMatrix() {
         throw "Invalid popMatrix!";
     }
     mvMatrix = mvMatrixStack.pop();
-}
-
-function setObjUniforms() {
-    var now = new Date();
-    var deltaT = (now.getTime() - startTime) / 1000.0;
-
-    var sym = 3;
-
-    var attributes = {
-        'time':{type:'f',val:deltaT},
-        'minX':{type:'f',val:-sym},
-        'maxX':{type:'f',val:sym},
-        'maxY':{type:'f',val:-sym},
-        'minY':{type:'f',val:sym},
-        'minZ':{type:'f',val:-sym},
-        'maxZ':{type:'f',val:sym},
-        'pMatrix':{type:'4fm',val:pMatrix},
-        'mvMatrix':{type:'4fm',val:mvMatrix},
-    };
-
-    blendShaderObj.updateAttributes(attributes);
 }
 
 function degToRad(degrees) {
