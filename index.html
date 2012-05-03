@@ -631,6 +631,15 @@ function changeOurEquation(equationInfo) {
     prob = newProb;
     template = newTemplate;
     solver = newSolver;
+
+    if(now.total)
+    {
+        solver.baseSearchWindow.divideUpSearchSpace(now.position,now.total);
+    }
+    else
+    {
+        console.log("no now total");
+    }
 };
 
 function initGL(canvas) {

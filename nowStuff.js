@@ -28,6 +28,12 @@ function makeAndJoinRoom(roomName) {
 }
 
 function changeRoomEquation(equationInfo) {
+    //always divide up search space
+    if(window.now && window.now.position && window.now.total)
+    {
+        solver.baseSearchWindow.divideUpSearchSpace(now.position,now.total);
+    }
+
     if(!window.now || !window.now.changeEquation)
     {
         return;

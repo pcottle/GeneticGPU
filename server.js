@@ -84,8 +84,8 @@ everyone.now.changeRoom = function(newRoom){
 
         _this.now.receiveMessage("You're now in " + _this.now.room + " and worker number " + count);
         _this.now.position = count;
-        _this.now.receiveEquation(roomInfo[_this.now.room]);
         _this.now.distributeNewTotal(count);
+        _this.now.receiveEquation(roomInfo[_this.now.room]);
         _this.now.receiveRoom(_this.now.room);
   });
 }
@@ -95,7 +95,9 @@ everyone.now.distributeMessage = function(message){
 };
 
 everyone.now.distributeEquation = function(roomName,equationInfo) {
-    nowjs.getGroup(roomName).exclude([this.user.clientId]).now.receiveEquation(equationInfo);
+    nowjs.getGroup(roomName).now.receiveMessage("NETWORK: Changing equation to " + equationInfo.equationString);
+    
+    nowjs.getGroup(roomName).now.receiveEquation(equationInfo);
 };
 
 everyone.now.distributeNewTotal = function(totalCount) {
