@@ -49,7 +49,7 @@ everyone.now.changeEquation = function(roomName,equationInfo) {
     
     roomInfo[room] = equationInfo;
 
-    this.distributeEquation(equationInfo);
+    this.distributeEquation(roomName,equationInfo);
 };
 
 everyone.now.changeRoom = function(newRoom){
@@ -94,8 +94,8 @@ everyone.now.distributeMessage = function(message){
   nowjs.getGroup(this.now.room).now.receiveMessage(message);
 };
 
-everyone.now.distributeEquation = function(equationInfo) {
-    nowjs.getGroup(this.now.room).exclude([this.user.clientId]).now.receiveEquation(equationInfo);
+everyone.now.distributeEquation = function(roomName,equationInfo) {
+    nowjs.getGroup(roomName).exclude([this.user.clientId]).now.receiveEquation(equationInfo);
 };
 
 everyone.now.distributeNewTotal = function(totalCount) {
