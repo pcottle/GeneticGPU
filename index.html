@@ -566,7 +566,10 @@ function equationStringEdit() {
         //good equation -- the default style is "good equation"
         lastEquation = newEquation.replace(/\s/g,'');
         //update your now.js room
-        changeRoomEquation(newEquation);
+
+        var equationInfo = getMyEquationInfo();
+
+        changeRoomEquation(equationInfo);
     }
     else
     {

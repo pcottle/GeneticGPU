@@ -6,8 +6,7 @@ function joinRoom(roomName) {
 
 }
 
-function makeAndJoinRoom(roomName) {
-    //make the room, using our current variables
+function getMyEquationInfo() {
     var equationString = solver.problem.equationString;
     var fixedVars = solver.baseSearchWindow.fixedVars;
 
@@ -16,6 +15,13 @@ function makeAndJoinRoom(roomName) {
         'fixedVars':fixedVars,
         'fixAllBut2':false
     };
+
+    return equationInfo;
+}
+
+function makeAndJoinRoom(roomName) {
+    //make the room, using our current variables
+    var equationInfo = getMyEquationInfo();
 
     now.makeRoom(roomName,equationInfo);
     //will join automatically once its made
@@ -71,7 +77,9 @@ function defineNowFunctions() {
     };
 
     now.receiveRoom = function(room) {
+        //for some reason this isnt setting the room correctly...
         now.room = room;
+        now.receiveMessage("Set room to " + room);
     };
 
     now.receiveEquation = function(equationInfo) {

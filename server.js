@@ -39,13 +39,15 @@ everyone.now.makeRoom = function(newRoom,equationInfo) {
     this.now.changeRoom(newRoom);
 };
 
-everyone.now.changeEquation = function(room,equationInfo) {
+everyone.now.changeEquation = function(equationInfo) {
+    var room = this.room;
+    
     if(!roomInfo[room])
     {
         this.now.receiveMessage("You haven't made that room yet");
         return;
     }
-
+    
     roomInfo[room] = equationInfo;
 
     this.distributeEquation(equationInfo);
