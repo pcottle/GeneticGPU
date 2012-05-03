@@ -19,7 +19,7 @@ var everyone = nowjs.initialize(server, {socketio: {transports: ['xhr-polling', 
 nowjs.on('connect', function(){
   this.now.room = "lobby";
   nowjs.getGroup(this.now.room).addUser(this.user.clientId);
-  console.log("Joined: " + this.user.clientId) + " to room" + this.now.room);
+  console.log("Joined: " + this.user.clientId + " to room" + this.now.room);
 });
 
 
