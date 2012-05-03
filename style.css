@@ -643,11 +643,20 @@ div > p {
    }
    
 #networkMessages {
-    padding:40px;
-    height:200px;
+    padding:0px;
+    margin:0px;
+    position:absolute;
+    bottom:0px;
+    left:0px;
+    height:100px;
     overflow-x:hidden;
     overflow-y:auto;
-    }
+    width:100%;
+}
+#networkMessages > p {
+    padding-left:10px;
+    margin:4px;
+}
 
 
 

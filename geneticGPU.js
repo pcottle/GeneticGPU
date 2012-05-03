@@ -120,12 +120,33 @@ SearchWindow.prototype.reset = function() {
     this.windowAttributes['mvMatrix'] = {type:'4fm',val:standardMoveMatrix};
 };
 
-SearchWindow.prototype.divideUpSearchSpace = function(numInGroup,totalNumInGroup,minVal,maxVal) {
-    //we will divide up the first sample var min / max bounds
+SearchWindow.prototype.divideUpSearchSpace = function(numInGroup,totalNumInGroup) {
+    //we will divide up the first sample variable based on the min/max bounds we have.
 
-    range = maxVal - minVal;
+    var varToDivide = this.sampleVars[0];
 
+    //here the default min/max is just -3 and 3
+    var minVal = -3;
+    var maxVal = 3;
 
+    var range = maxVal - minVal;
+
+    var slice = range / totalNumInGroup;
+
+    var myMinBound = slice * (numInGroup - 1) + minVal;
+    var myMaxBound = slice * (numInGroup) + minVal;
+
+    var minName = 'min' + varToDivide.toUpperCase();
+    var maxName = 'max' + varToDivide.toUpperCase();
+
+    this.windowAttributes['min' + varToDivide.toUpperCase()].val = myMinBound;
+    this.windowAttributes['max' + varToDivide.toUpperCase()].val = myMaxBound;
+
+    console.log("new min was ",myMinBound, " and new max was", myMaxBound, "on variable",varToDivide);
+
+    //i should use event emitters, but instead we will just update the dom directly
+    $j('#' + minName).html(String(myMinBound));
+    $j('#' + maxName).html(String(myMaxBound));
 };
 
 SearchWindow.prototype.getAllVariables = function() {

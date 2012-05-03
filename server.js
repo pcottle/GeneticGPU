@@ -60,7 +60,7 @@ everyone.now.changeRoom = function(newRoom){
   }
 
   //tell only this client that they are leaving
-  this.now.distributeMessage("Hey everyone in group " + this.now.room + ", this person " + this.user.clientId + " is leaving");
+  this.now.distributeMessage("Hey everyone in group " + this.now.room + ", this person " + String(this.user.clientId).substring(0,5) + " is leaving");
 
   //remove them from the group and get the new one
   nowjs.getGroup(this.now.room).removeUser(this.user.clientId);
@@ -68,7 +68,7 @@ everyone.now.changeRoom = function(newRoom){
 
   //set the room and tell them that they have joined
   this.now.room = newRoom;
-  this.now.distributeMessage("Hey everyone in group " + this.now.room + ", this person" + this.user.clientId + " is entering!");
+  this.now.distributeMessage("Hey everyone in group " + this.now.room + ", this person" + String(this.user.clientId).substring(0,5) + " is entering!");
 
   //we need to tell them how many are in the room
   var _this = this;
@@ -86,7 +86,7 @@ everyone.now.distributeMessage = function(message){
 };
 
 everyone.now.distributeEquation = function(equationInfo) {
-    nowjs.getGroup(this.now.room).now.receiveEquation(equationInfo);
+    nowjs.getGroup(this.now.room).exclude([this.user.clientId]).now.receiveEquation(equationInfo);
 };
 
 everyone.now.distributeNewTotal = function(totalCount) {

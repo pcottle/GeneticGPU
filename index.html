@@ -593,12 +593,47 @@ function buildProblem(equationString) {
     }
 
     console.log("new problem success!!");
-    //these are valid so switch over
+    //these are valid so switch over for real
+
+    var equationInfo = {
+        'equationString':equationString,
+        'fixedVars':[],
+        'fixAllBut2':true
+    };
+
     prob = newProb;
     template = newTemplate;
     solver = newSolver;
+
+    //distribute this now
+    changeRoomEquation(equationInfo);
+
     return true;
 }
+
+function changeOurEquation(equationInfo) {
+    var equationString = equationInfo.equationString;
+    var fixedVars = equationInfo.fixedVars;
+    var fixAllBut2 = equationInfo.fixAllBut2;
+
+    if(!equationString) { alert("bad equation string in equationinfo!"); return; }
+
+    var newProb, newTemplate, newSolver;
+
+    try {
+        console.log("making new prob with",equationString);
+        newProb = new Problem(equationString,[],true);
+        newTemplate = new ShaderTemplateRenderer(newProb);
+        newSolver = newTemplate.solver;
+    } catch(e) {
+        topNotify("weird! new problem failed:" + String(e));
+        return null;
+    }
+
+    prob = newProb;
+    template = newTemplate;
+    solver = newSolver;
+};
 
 function initGL(canvas) {
     try {

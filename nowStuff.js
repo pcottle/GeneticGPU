@@ -12,8 +12,14 @@ function makeAndJoinRoom(roomName) {
     //will join automatically once its made
 }
 
-function changeRoomEquation(equationString) {
+function changeRoomEquation(equationInfo) {
+    if(!window.now || !window.now.changeEquation)
+    {
+        return;
+    }
 
+    //update it, we will receive the equation as well but whatever
+    now.changeEquation(equationInfo);
 }
 
 function doNodeStuff() {
@@ -42,20 +48,25 @@ function defineNowFunctions() {
     now.receiveTotal = function(total) {
         now.total = total;
 
-        //TODO: update the bounds
+        //our position should be set
+        if(!now.position)
+        {
+            alert("no position set! error");
+            return;
+        }
 
+        //now update the bounds on the main search window
+
+        solver.baseSearchWindow.divideUpSearchSpace(now.position,total);
     };
 
     now.receiveEquation = function(equationInfo) {
-
-        //TODO: will basically make a new problem and all of that stuff, hopefully call to
-        //aux method
+        changeOurEquation(equationInfo);
     };
 
     now.receiveMessage = function(message) {
         //append to the message dom
         $j('#networkMessages').prepend('<p>' + message + '</p>');
-        console.log("NOW MESSAGE" + message);
     };
 }
 
