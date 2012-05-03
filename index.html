@@ -593,15 +593,11 @@ function buildProblem(equationString) {
     console.log("new problem success!!");
     //these are valid so switch over for real
 
-    var equationInfo = {
-        'equationString':equationString,
-        'fixedVars':[],
-        'fixAllBut2':true
-    };
-
     prob = newProb;
     template = newTemplate;
     solver = newSolver;
+
+    var equationInfo = getMyEquationInfo();
 
     //distribute this now
     changeRoomEquation(equationInfo);

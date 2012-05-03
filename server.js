@@ -96,7 +96,6 @@ everyone.now.distributeMessage = function(message){
 
 everyone.now.distributeEquation = function(roomName,equationInfo) {
     nowjs.getGroup(roomName).now.receiveMessage("NETWORK: Changing equation to " + equationInfo.equationString);
-    
     nowjs.getGroup(roomName).now.receiveEquation(equationInfo);
 };
 

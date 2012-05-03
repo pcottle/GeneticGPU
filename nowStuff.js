@@ -28,6 +28,9 @@ function makeAndJoinRoom(roomName) {
 }
 
 function changeRoomEquation(equationInfo) {
+    console.log("tryign to change equation...");
+    now.receiveMessage("Changing room equation from your change");
+
     //always divide up search space
     if(window.now && window.now.position && window.now.total)
     {
@@ -36,8 +39,10 @@ function changeRoomEquation(equationInfo) {
 
     if(!window.now || !window.now.changeEquation)
     {
+        console.log("returning");
         return;
     }
+    console.log("down here",equationInfo,now.room);
 
     //update it, we will receive the equation as well but whatever
     now.changeEquation(now.room,equationInfo);
