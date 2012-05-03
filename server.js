@@ -17,9 +17,8 @@ var everyone = nowjs.initialize(server, {socketio: {transports: ['xhr-polling', 
 
 
 nowjs.on('connect', function(){
-  this.now.room = "lobby";
-  nowjs.getGroup(this.now.room).addUser(this.user.clientId);
-  console.log("Joined: " + this.user.clientId + " to room" + this.now.room);
+  this.now.firstRoom = "lobby";
+  nowjs.getGroup(this.now.firstRoom).addUser(this.user.clientId);
 });
 
 
@@ -61,11 +60,18 @@ everyone.now.changeRoom = function(newRoom){
       return;
   }
 
-  //tell only this client that they are leaving
-  this.now.distributeMessage("Hey everyone in group " + this.now.room + ", this person " + String(this.user.clientId).substring(0,5) + " is leaving");
-
+  if(this.now.room)
+  {
+      //tell only this client that they are leaving
+      this.now.distributeMessage("Hey everyone in group " + this.now.room + ", this person " + String(this.user.clientId).substring(0,5) + " is leaving");
+      nowjs.getGroup(this.now.room).removeUser(this.user.clientId);
+  }
+  else
+  {
+      nowjs.getGroup('lobby').removeUser(this.user.clientId);
+  }
+  
   //remove them from the group and get the new one
-  nowjs.getGroup(this.now.room).removeUser(this.user.clientId);
   nowjs.getGroup(newRoom).addUser(this.user.clientId);
 
   //set the room and tell them that they have joined
