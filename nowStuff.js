@@ -34,7 +34,7 @@ function changeRoomEquation(equationInfo) {
     }
 
     //update it, we will receive the equation as well but whatever
-    now.changeEquation(equationInfo);
+    now.changeEquation(now.room,equationInfo);
 }
 
 function doNodeStuff() {

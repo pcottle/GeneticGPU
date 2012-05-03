@@ -38,12 +38,12 @@ everyone.now.makeRoom = function(newRoom,equationInfo) {
     this.now.changeRoom(newRoom);
 };
 
-everyone.now.changeEquation = function(equationInfo) {
-    var room = this.room;
+everyone.now.changeEquation = function(roomName,equationInfo) {
+    var room = roomName;
     
     if(!roomInfo[room])
     {
-        this.now.receiveMessage("You haven't made that room yet");
+        this.now.receiveMessage("You haven't made that room," + String(room) + " yet");
         return;
     }
     
