@@ -641,5 +641,13 @@ div > p {
    border-top-color: #9bcbeb;
    background: #9bcbeb;
    }
+   
+#networkMessages {
+    padding:40px;
+    height:200px;
+    overflow-x:hidden;
+    overflow-y:auto;
+    }
+
 
 

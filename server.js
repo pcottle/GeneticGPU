@@ -39,6 +39,18 @@ everyone.now.makeRoom = function(newRoom,equationInfo) {
     this.now.changeRoom(newRoom);
 };
 
+everyone.now.changeEquation = function(room,equationInfo) {
+    if(!roomInfo[room])
+    {
+        this.now.receiveMessage("You haven't made that room yet");
+        return;
+    }
+
+    roomInfo[room] = equationInfo;
+
+    this.distributeEquation(equationInfo);
+};
+
 everyone.now.changeRoom = function(newRoom){
 
   if(!roomInfo[newRoom])
@@ -72,7 +84,6 @@ everyone.now.changeRoom = function(newRoom){
 everyone.now.distributeMessage = function(message){
   nowjs.getGroup(this.now.room).now.receiveMessage(message);
 };
-
 
 everyone.now.distributeEquation = function(equationInfo) {
     nowjs.getGroup(this.now.room).now.receiveEquation(equationInfo);

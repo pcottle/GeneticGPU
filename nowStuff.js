@@ -41,15 +41,20 @@ function defineNowFunctions() {
 
     now.receiveTotal = function(total) {
         now.total = total;
+
+        //TODO: update the bounds
+
     };
 
     now.receiveEquation = function(equationInfo) {
+
         //TODO: will basically make a new problem and all of that stuff, hopefully call to
         //aux method
     };
 
     now.receiveMessage = function(message) {
         //append to the message dom
+        $j('#networkMessages').prepend('<p>' + message + '</p>');
         console.log("NOW MESSAGE" + message);
     };
 }
