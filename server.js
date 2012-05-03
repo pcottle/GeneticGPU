@@ -34,7 +34,7 @@ everyone.now.makeRoom = function(newRoom,equationInfo) {
 
     //we need to initialize some things about roomInnfo
     roomInfo[newRoom] = equationInfo;
-
+    
     this.now.receiveMessage("You have now made / updated the room " + newRoom + ", transferring you...");
     this.now.changeRoom(newRoom);
 };
@@ -78,6 +78,7 @@ everyone.now.changeRoom = function(newRoom){
         _this.now.position = count;
         _this.now.receiveEquation(roomInfo[_this.now.room]);
         _this.now.distributeNewTotal(count);
+        _this.now.receiveRoom(_this.now.room);
   });
 }
 

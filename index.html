@@ -616,7 +616,7 @@ function changeOurEquation(equationInfo) {
     var fixedVars = equationInfo.fixedVars;
     var fixAllBut2 = equationInfo.fixAllBut2;
 
-    if(!equationString) { alert("bad equation string in equationinfo!"); return; }
+    if(!equationString) { alert("bad equation string in equationinfo!"); console.log(equationInfo); return; }
 
     var newProb, newTemplate, newSolver;
 

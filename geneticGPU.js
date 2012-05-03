@@ -142,8 +142,6 @@ SearchWindow.prototype.divideUpSearchSpace = function(numInGroup,totalNumInGroup
     this.windowAttributes['min' + varToDivide.toUpperCase()].val = myMinBound;
     this.windowAttributes['max' + varToDivide.toUpperCase()].val = myMaxBound;
 
-    console.log("new min was ",myMinBound, " and new max was", myMaxBound, "on variable",varToDivide);
-
     //i should use event emitters, but instead we will just update the dom directly
     $j('#' + minName).html(String(myMinBound));
     $j('#' + maxName).html(String(myMaxBound));

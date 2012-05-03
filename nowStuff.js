@@ -7,8 +7,17 @@ function joinRoom(roomName) {
 }
 
 function makeAndJoinRoom(roomName) {
-    //make the room, now with a default equation
-    now.makeRoom(roomName,{'eq':'x + y'});
+    //make the room, using our current variables
+    var equationString = solver.problem.equationString;
+    var fixedVars = solver.baseSearchWindow.fixedVars;
+
+    var equationInfo = {
+        'equationString':equationString,
+        'fixedVars':fixedVars,
+        'fixAllBut2':false
+    };
+
+    now.makeRoom(roomName,equationInfo);
     //will join automatically once its made
 }
 
@@ -56,11 +65,18 @@ function defineNowFunctions() {
         }
 
         //now update the bounds on the main search window
-
         solver.baseSearchWindow.divideUpSearchSpace(now.position,total);
+
+        now.receiveMessage("Dividing up search space with new total of " + String(total));
+    };
+
+    now.receiveRoom = function(room) {
+        now.room = room;
     };
 
     now.receiveEquation = function(equationInfo) {
+        console.log("equation info is",equationInfo);
+        now.receiveMessage("Changing equation to " + equationInfo.equationString);
         changeOurEquation(equationInfo);
     };
 
