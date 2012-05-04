@@ -123,7 +123,8 @@ function roomUpdate() {
         room = randomString(5);
         makeAndJoinRoom(room);
         //link room
-        history.pushState(null,'Genetic GPU!',"?room=" + room);
+        //TODO: REDO THIS AFTER DEBUGGING
+        //history.pushState(null,'Genetic GPU!',"?room=" + room);
     }
 }
 

@@ -570,7 +570,8 @@ ShaderTemplateRenderer.prototype.buildShaders = function(varsToSolve,type) {
     while(varsToSolve.length > 0)
     {
         //for now we do one variable per shader
-        var varsToExtract = varsToSolve.splice(0,1);
+        //OPTION for variables per shader
+        var varsToExtract = varsToSolve.splice(0,3);
 
         console.log("building shader for these vars");
         console.log(varsToExtract);
