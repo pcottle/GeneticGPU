@@ -124,7 +124,7 @@ function roomUpdate() {
         makeAndJoinRoom(room);
         //link room
         //TODO: REDO THIS AFTER DEBUGGING
-        //history.pushState(null,'Genetic GPU!',"?room=" + room);
+        history.pushState(null,'Genetic GPU!',"?room=" + room);
     }
 }
 
