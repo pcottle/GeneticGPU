@@ -9,9 +9,9 @@ function getMyEquationInfo() {
     var fixedVars = solver.baseSearchWindow.fixedVars;
 
     var equationInfo = {
-        'equationString':equationString,
-        'fixedVars':fixedVars,
-        'fixAllBut2':false
+        'equationString': equationString,
+        'fixedVars': fixedVars,
+        'fixAllBut2': false
     };
 
     return equationInfo;
@@ -21,7 +21,7 @@ function makeAndJoinRoom(roomName) {
     //make the room, using our current variables
     var equationInfo = getMyEquationInfo();
 
-    now.makeRoom(roomName,equationInfo);
+    now.makeRoom(roomName, equationInfo);
     //will join automatically once its made
 }
 
@@ -30,74 +30,69 @@ function changeRoomEquation(equationInfo) {
     now.receiveMessage("Changing room equation from your change");
 
     //always divide up search space
-    if(window.now && window.now.position && window.now.total)
-    {
-        solver.baseSearchWindow.divideUpSearchSpace(now.position,now.total);
+    if (window.now && window.now.position && window.now.total) {
+        solver.baseSearchWindow.divideUpSearchSpace(now.position, now.total);
     }
 
-    if(!window.now || !window.now.changeEquation)
-    {
+    if (!window.now || !window.now.changeEquation) {
         console.log("returning");
         return;
     }
-    console.log("down here",equationInfo,now.room);
+    console.log("down here", equationInfo, now.room);
 
     //update it, we will receive the equation as well but whatever
-    now.changeEquation(now.room,equationInfo);
+    now.changeEquation(now.room, equationInfo);
 }
 
 function doNodeStuff() {
-    if(!window.now)
-    {
+    if (!window.now) {
         alert("no now.js detected, entering no-network mode");
     }
 
-    now.ready(function() {
+    now.ready(function () {
         defineNowFunctions();
         roomUpdate();
     });
 }
 
 function defineNowFunctions() {
-    now.receiveNetworkMinimum = function(minPos) {
+    now.receiveNetworkMinimum = function (minPos) {
         //go to the current solver's saver
-        if(!window.solver)
-        {
+        if (!window.solver) {
             return;
         }
 
         solver.minSaver.receiveNetworkMin(minPos);
     };
 
-    now.receiveTotal = function(total) {
+    now.receiveTotal = function (total) {
         now.total = total;
 
         //our position should be set
-        if(!now.position)
-        {
+        if (!now.position) {
             alert("no position set! error");
             return;
         }
 
         //now update the bounds on the main search window
-        solver.baseSearchWindow.divideUpSearchSpace(now.position,total);
+        solver.baseSearchWindow.divideUpSearchSpace(now.position, total);
 
         now.receiveMessage("Dividing up search space with new total of " + String(total));
     };
 
-    now.receiveRoom = function(room) {
+    now.receiveRoom = function (room) {
         //for some reason this isnt setting the room correctly...
         now.room = room;
         now.receiveMessage("Set room to " + room);
     };
 
-    now.receiveEquation = function(equationInfo) {
-        console.log("equation info is",equationInfo);
+    now.receiveEquation = function (equationInfo) {
+        console.log("equation info is", equationInfo);
         now.receiveMessage("Changing equation to " + equationInfo.equationString);
         changeOurEquation(equationInfo);
     };
 
-    now.receiveMessage = function(message) {
+    now.receiveMessage = function (message) {
         //append to the message dom
         $j('#networkMessages').prepend('<p>' + message + '</p>');
     };
@@ -111,20 +106,16 @@ function roomUpdate() {
     results = /room=(\w+)/.exec(href);
     var room = null;
 
-    if(results)
-    {
+    if (results) {
         //we got linked to a room, go join it
         room = results[1];
         joinRoom(room);
-    }
-    else
-    {
+    } else {
         //make room
         room = randomString(5);
         makeAndJoinRoom(room);
         //link room
         //TODO: REDO THIS AFTER DEBUGGING
-        history.pushState(null,'Genetic GPU!',"?room=" + room);
+        history.pushState(null, 'Genetic GPU!', "?room=" + room);
     }
 }
-

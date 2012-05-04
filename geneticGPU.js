@@ -1,4 +1,3 @@
-
 //divisors
 var numRows = 71;
 
@@ -17,7 +16,10 @@ var globalXrotate = -80;
 var angleLimit = 90;
 var rotateOn = false;
 
-var rotVariablesForTween = {'x':globalXrotate,'y':globalYrotate};
+var rotVariablesForTween = {
+    'x': globalXrotate,
+    'y': globalYrotate
+};
 var ourTween = null;
 var tweenTime = 1000;
 var tweenEasing = TWEEN.Easing.Cubic.EaseInOut;
@@ -29,13 +31,12 @@ var startTime = timeOnLoad.getTime();
 var blendShaderObj = null;
 
 //hacked up javascript clone object method from stackoverflow. certainly a blemish on the face of JS
-
 function clone(obj) {
     //3 simple types and null / undefined
-    if(null == obj || "object" != typeof obj) return obj;
+    if (null == obj || "object" != typeof obj) return obj;
 
     //date
-    if(obj instanceof Date) {
+    if (obj instanceof Date) {
         var copy = new Date();
         copy.setTime(obj.getTime());
         return copy;
@@ -44,17 +45,17 @@ function clone(obj) {
     //array
     if (obj instanceof Array) {
         var copy = [];
-        for( var i = 0; i < obj.length; ++i) {
+        for (var i = 0; i < obj.length; ++i) {
             copy[i] = clone(obj[i]);
         }
         return copy;
     }
 
     //object
-    if(obj instanceof Object) {
+    if (obj instanceof Object) {
         var copy = {};
-        for(var attr in obj) {
-            if(obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+        for (var attr in obj) {
+            if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
         }
         return copy;
     }
@@ -63,12 +64,11 @@ function clone(obj) {
 
 
 /*****************CLASSES*******************/
-var SearchWindow = function(sampleVars,fixedVars) {
+var SearchWindow = function (sampleVars, fixedVars) {
 
     this.sampleVars = sampleVars;
 
-    if(!fixedVars)
-    {
+    if (!fixedVars) {
         fixedVars = [];
     }
 
@@ -82,8 +82,42 @@ var SearchWindow = function(sampleVars,fixedVars) {
 
 };
 
+SearchWindow.prototype.updateFromNdPos = function(ndMin) {
+    //loop through and set the ones that are in our fixed vals
+    for(varName in ndMin)
+    {
+        //dont do anything if this is a normal sample var
+        if(this.fixedVars.indexOf(varName) == -1)
+        {
+            continue;
+        }
+        //get the name
+        var varNameFixed = "fixed" + varName.toUpperCase() + "val";
+        //set the val
+        if(!this.windowAttributes[varNameFixed])
+        {
+            console.warn("something seriously wrong for ",varName, "and ",varNameFixed," on me",this);
+            continue;
+        }
+        this.windowAttributes[varNameFixed].val = ndMin[varName];
+    }
+    //should be done! buffering will happen outside this call
+};
 
-SearchWindow.prototype.reset = function() {
+SearchWindow.prototype.updateBoundsOnZ = function(otherWindow) {
+    var keys = ['minZ','maxZ'];
+
+    for(var i = 0; i < keys.length; i++)
+    {
+        var key = keys[i];
+
+        var theirVal = otherWindow.windowAttributes[key].val;
+        this.windowAttributes[key].val = theirVal;
+    }
+};
+
+
+SearchWindow.prototype.reset = function () {
 
     this.minmaxList = [];
     this.fixedList = [];
@@ -91,13 +125,18 @@ SearchWindow.prototype.reset = function() {
     //include z for window attributes and minmax, but it's not a "sample var"
     var attributeVars = this.sampleVars.concat(['z']);
 
-    for(var i = 0; i < attributeVars.length; i++)
-    {
+    for (var i = 0; i < attributeVars.length; i++) {
         var min = "min" + attributeVars[i].toUpperCase();
         var max = "max" + attributeVars[i].toUpperCase();
 
-        this.windowAttributes[min] = {type:'f', val: -3};
-        this.windowAttributes[max] = {type:'f', val: 3};
+        this.windowAttributes[min] = {
+            type: 'f',
+            val: -3
+        };
+        this.windowAttributes[max] = {
+            type: 'f',
+            val: 3
+        };
 
         $j('#' + min).html(String(-3));
         $j('#' + max).html(String(3));
@@ -106,24 +145,30 @@ SearchWindow.prototype.reset = function() {
         this.minmaxList.push(max);
     }
 
-    for(var j = 0; j < this.fixedVars.length; j++)
-    {
-        console.log("adding this thing",this.fixedVars[j]);
+    for (var j = 0; j < this.fixedVars.length; j++) {
         var fixedVal = "fixed" + this.fixedVars[j].toUpperCase() + "val";
-        this.windowAttributes[fixedVal] = {type:'f',val:1};
+        this.windowAttributes[fixedVal] = {
+            type: 'f',
+            val: 1
+        };
 
         $j('#' + fixedVal).html(String(1));
 
         this.fixedList.push(fixedVal);
     }
 
-    this.windowAttributes['pMatrix'] = {type:'4fm',val:orthogProjMatrix};
-    this.windowAttributes['mvMatrix'] = {type:'4fm',val:standardMoveMatrix};
+    this.windowAttributes['pMatrix'] = {
+        type: '4fm',
+        val: orthogProjMatrix
+    };
+    this.windowAttributes['mvMatrix'] = {
+        type: '4fm',
+        val: standardMoveMatrix
+    };
 };
 
-SearchWindow.prototype.divideUpSearchSpace = function(numInGroup,totalNumInGroup) {
+SearchWindow.prototype.divideUpSearchSpace = function (numInGroup, totalNumInGroup) {
     //we will divide up the first sample variable based on the min/max bounds we have.
-
     var varToDivide = this.sampleVars[0];
 
     //here the default min/max is just -3 and 3
@@ -148,38 +193,36 @@ SearchWindow.prototype.divideUpSearchSpace = function(numInGroup,totalNumInGroup
     $j('#' + maxName).html(String(myMaxBound));
 };
 
-SearchWindow.prototype.getAllVariables = function() {
+SearchWindow.prototype.getAllVariables = function () {
     return this.fixedVars.concat(this.sampleVars);
 };
 
-SearchWindow.prototype.makeZoomWindow = function(centerPosition,percent) {
+SearchWindow.prototype.makeZoomWindow = function (centerPosition, percent) {
     //we will essentially "breed out" the search window here
-
     //first clone the search window we have right now
     //this used to be a call to the clone method, but that did not preserve the float32array type
     //of our perspective matrices, so we will do it manually here
     var copy = {};
     copy.windowAttributes = {};
 
-    for(key in this.windowAttributes)
-    {
+    for (key in this.windowAttributes) {
         var type = this.windowAttributes[key].type;
-        if(type != '4fm') //don't copy the matrices
+        if (type != '4fm') //don't copy the matrices
         {
-            copy.windowAttributes[key] = {'type':type,'val':this.windowAttributes[key].val};
+            copy.windowAttributes[key] = {
+                'type': type,
+                'val': this.windowAttributes[key].val
+            };
         }
     }
 
     //the centerposition must contain all the sample variables and the z
     //attribute. it has direct access to the value, NOT the typical "type/val" object
-    for(key in centerPosition)
-    {
-        if(key == 'z')
-        {
+    for (key in centerPosition) {
+        if (key == 'z') {
             continue;
         }
-        if(key != 'z' && this.sampleVars.indexOf(key) == -1)
-        {
+        if (key != 'z' && this.sampleVars.indexOf(key) == -1) {
             continue;
         }
 
@@ -196,10 +239,10 @@ SearchWindow.prototype.makeZoomWindow = function(centerPosition,percent) {
         //we could go outside the bounds here by accident, so make sure to
         //floor these
         var newMaxVal = centerVal + deltaEachSide;
-        newMaxVal = Math.min(newMaxVal,maxVal);
+        newMaxVal = Math.min(newMaxVal, maxVal);
 
         var newMinVal = centerVal - deltaEachSide;
-        newMinVal = Math.max(newMinVal,minVal);
+        newMinVal = Math.max(newMinVal, minVal);
 
         //set these new min / max's in the new window
         copy.windowAttributes[max].val = newMaxVal;
@@ -211,166 +254,148 @@ SearchWindow.prototype.makeZoomWindow = function(centerPosition,percent) {
 };
 
 
-var Problem = function(equationString,userSpecifiedFixedVariables,fixAllBut2) {
+var Problem = function (equationString, userSpecifiedFixedVariables, fixAllBut2) {
 
-    //here the equationString is the given equation we want to parse. the fixedVariables
-    //are the variables we want fixed, aka gravity or conductivity or something else similar
-
-    if(!userSpecifiedFixedVariables)
-    {
-        userSpecifiedFixedVariables = [];
-    }
-
-    //check if its valid. validateequationstring will throw errors on bad strings,
-    //so these need to be caught by a try / catch block
-    equationString = this.validateEquationString(equationString);
-
-    //first add the colon if it's not there
-    if(!equationString.match(/;/))
-    {
-        equationString = equationString + ";";
-    }
-
-    //ok so we have a valid equation
-    //get all the variables besides z
-    this.equationString = equationString;
-    var es = equationString;
-
-    //first see if "time" is there, aka we want to use time
-    //to drive the simulation in some way (but its not a dimensional variable to solve for)
-    var timeIsThere = false;
-
-    if(es.match(/time/))
-    {
-        timeIsThere = true;
-    }
-    this.wantsTime = timeIsThere;
-
-    //first replace all the "pow" operations and such. this will also remove time because that's a 
-    //multicharacter match
-    var es = equationString;
-    es = es.replace(/([a-zA-Z][a-zA-Z]+)/g,"");
-
-    //now extract out all single variables, except for z because that's the cost function. note the
-    //a-y in the regex for omitting z
-    var allVariables = es.match(/([a-yA-Y])/g);
-
-    //make variables unique! we will no longer abuse jquery here and abuse javascript objects
-    //abusing jquery didnt work because it would catch two instances of "x" for some reason,
-    //it was confused between the object x and the string containing "x" i guess
-    var varSet = {};
-    for(var i = 0; i < allVariables.length; i++)
-    {
-        varSet[allVariables[i]] = true;
-    }
-    allVariables = [];
-    for(key in varSet)
-    {
-        allVariables.push(key);
-    }
-
-    //sort so hopefully x and y are at the back
-    allVariables = allVariables.sort()
-    console.log("after sorting",allVariables);
-
-    if(allVariables.length < 2)
-    {
-        throw new Error("Specify at least 2 variables!");
-    }
-
-    //we need to determine which are sample variables in the problem and which are 
-    //fixed variables specified by the user.
-    var sampleVariables = [];
-    var fixedVariables = [];
-
-    //now we will loop through these variables, either adding them to sample variables or fixed variables
-    for(var i = 0; i < allVariables.length; i++)
-    {
-        var thisVar = allVariables[i];
-        if(userSpecifiedFixedVariables.indexOf(thisVar) != -1)
-        {
-            fixedVariables.push(thisVar);
+        //here the equationString is the given equation we want to parse. the fixedVariables
+        //are the variables we want fixed, aka gravity or conductivity or something else similar
+        if (!userSpecifiedFixedVariables) {
+            userSpecifiedFixedVariables = [];
         }
-        else
-        {
-            sampleVariables.push(thisVar);
+
+        //check if its valid. validateequationstring will throw errors on bad strings,
+        //so these need to be caught by a try / catch block
+        equationString = this.validateEquationString(equationString);
+
+        //first add the colon if it's not there
+        if (!equationString.match(/;/)) {
+            equationString = equationString + ";";
         }
-    }
 
-    //also, there's an optional mode to fix all but 2 of the variables. so here...
-    if(fixAllBut2)
-    {
-        console.log("fixing all but 2 as you specified");
-        var length = sampleVariables.length;
-        var sampleOnes = sampleVariables.slice(length-2);
-        var fixedOnes = sampleVariables.slice(0,length-2);
+        //ok so we have a valid equation
+        //get all the variables besides z
+        this.equationString = equationString;
+        var es = equationString;
 
-        sampleVariables = sampleOnes;
-        fixedVariables = fixedVariables.concat(fixedOnes);
-    }
+        //first see if "time" is there, aka we want to use time
+        //to drive the simulation in some way (but its not a dimensional variable to solve for)
+        var timeIsThere = false;
 
-    console.log("all variables",allVariables);
-    console.log("results: fixed",fixedVariables," sample", sampleVariables);
+        if (es.match(/time/)) {
+            timeIsThere = true;
+        }
+        this.wantsTime = timeIsThere;
 
-    //go build a window for these variables.
-    //z is included as a sample variable because it has bounds that need to be updated as the function scales
-    //the fixed variables will be given uniform attributes that can be easily modified
-    this.baseSearchWindow = new SearchWindow(sampleVariables,fixedVariables);
+        //first replace all the "pow" operations and such. this will also remove time because that's a 
+        //multicharacter match
+        var es = equationString;
+        es = es.replace(/([a-zA-Z][a-zA-Z]+)/g, "");
 
-    //ok so now we have our base search window. if our number of sample variables is just two,
-    //the 2d sampler base window is the same as the base search window. if not, we have to
-    //fix the sample variables one by one until we achieve a 2d sample space
-    var sampleVariablesFor2d = sampleVariables.slice(0);
-    var fixedVariablesFor2d = fixedVariables.slice(0);
-    var variablesWeHadToFixFor2d = [];
+        //now extract out all single variables, except for z because that's the cost function. note the
+        //a-y in the regex for omitting z
+        var allVariables = es.match(/([a-yA-Y])/g);
 
-    while(sampleVariablesFor2d.length > 2)
-    {
-        var thisVar = sampleVariablesFor2d.splice(0,1)[0];
-        fixedVariablesFor2d.push(thisVar);
-        variablesWeHadToFixFor2d.push(thisVar);
-    }
+        //make variables unique! we will no longer abuse jquery here and abuse javascript objects
+        //abusing jquery didnt work because it would catch two instances of "x" for some reason,
+        //it was confused between the object x and the string containing "x" i guess
+        var varSet = {};
+        for (var i = 0; i < allVariables.length; i++) {
+            varSet[allVariables[i]] = true;
+        }
+        allVariables = [];
+        for (key in varSet) {
+            allVariables.push(key);
+        }
 
-    //ok now we are guaranteed that we have a 2d search space for this window. go make a search window
-    this.searchWindow2d = new SearchWindow(sampleVariablesFor2d,fixedVariablesFor2d);
+        //sort so hopefully x and y are at the back
+        allVariables = allVariables.sort()
+        console.log("after sorting", allVariables);
 
-    //very long variable name. but this is a very important list. we don't want to iterate through
-    //user-specified constants, but we want to iterate through the fixed variables we created to
-    //reduce the dimensionality down to 2
-    this.searchWindow2d.variablesWeHadToFixFor2d = variablesWeHadToFixFor2d;
+        if (allVariables.length < 2) {
+            throw new Error("Specify at least 2 variables!");
+        }
 
-    //also do control HTML
-    this.renderControlHTML();
-};
+        //we need to determine which are sample variables in the problem and which are 
+        //fixed variables specified by the user.
+        var sampleVariables = [];
+        var fixedVariables = [];
 
-Problem.prototype.validateEquationString = function(equationString) {
+        //now we will loop through these variables, either adding them to sample variables or fixed variables
+        for (var i = 0; i < allVariables.length; i++) {
+            var thisVar = allVariables[i];
+            if (userSpecifiedFixedVariables.indexOf(thisVar) != -1) {
+                fixedVariables.push(thisVar);
+            } else {
+                sampleVariables.push(thisVar);
+            }
+        }
+
+        //also, there's an optional mode to fix all but 2 of the variables. so here...
+        if (fixAllBut2) {
+            console.log("fixing all but 2 as you specified");
+            var length = sampleVariables.length;
+            var sampleOnes = sampleVariables.slice(length - 2);
+            var fixedOnes = sampleVariables.slice(0, length - 2);
+
+            sampleVariables = sampleOnes;
+            fixedVariables = fixedVariables.concat(fixedOnes);
+        }
+
+        console.log("all variables", allVariables);
+        console.log("results: fixed", fixedVariables, " sample", sampleVariables);
+
+        //go build a window for these variables.
+        //z is included as a sample variable because it has bounds that need to be updated as the function scales
+        //the fixed variables will be given uniform attributes that can be easily modified
+        this.baseSearchWindow = new SearchWindow(sampleVariables, fixedVariables);
+
+        //ok so now we have our base search window. if our number of sample variables is just two,
+        //the 2d sampler base window is the same as the base search window. if not, we have to
+        //fix the sample variables one by one until we achieve a 2d sample space
+        var sampleVariablesFor2d = sampleVariables.slice(0);
+        var fixedVariablesFor2d = fixedVariables.slice(0);
+        var variablesWeHadToFixFor2d = [];
+
+        while (sampleVariablesFor2d.length > 2) {
+            var thisVar = sampleVariablesFor2d.splice(0, 1)[0];
+            fixedVariablesFor2d.push(thisVar);
+            variablesWeHadToFixFor2d.push(thisVar);
+        }
+
+        //ok now we are guaranteed that we have a 2d search space for this window. go make a search window
+        this.searchWindow2d = new SearchWindow(sampleVariablesFor2d, fixedVariablesFor2d);
+
+        //very long variable name. but this is a very important list. we don't want to iterate through
+        //user-specified constants, but we want to iterate through the fixed variables we created to
+        //reduce the dimensionality down to 2
+        this.searchWindow2d.variablesWeHadToFixFor2d = variablesWeHadToFixFor2d;
+
+        //also do control HTML
+        this.renderControlHTML();
+    };
+
+Problem.prototype.validateEquationString = function (equationString) {
     //first remove all the valid digits
     var es = equationString;
     var toReturn = equationString;
 
     //first check that it begins with "z = " something
-    if(!es.match(/^[ ]*z[ ]*=/g))
-    {
+    if (!es.match(/^[ ]*z[ ]*=/g)) {
         throw new Error("the equation must start with z = something. Z is your cost function that you are trying to minimize with non-convex optimization");
     }
 
     //see if there are any digits with no period before and after
-    if(es.match(/([^.0-9]\d+[^.0-9])|([^.0-9]\d+$)|(^\d+[^.0-9])/g))
-    {
+    if (es.match(/([^.0-9]\d+[^.0-9])|([^.0-9]\d+$)|(^\d+[^.0-9])/g)) {
         //this is a giant pain but we have to replace them specifically by index
         var shouldContinue = true;
         var regex = /([^.0-9]\d+[^.0-9])|([^.0-9]\d+$)|(^\d+[^.0-9])/;
         var num = 0;
-        while(true)
-        {
+        while (true) {
             num++;
-            if(num > 10)
-            {
+            if (num > 10) {
                 break;
             }
             var indexFirst = es.search(regex);
-            if(indexFirst == -1)
-            {
+            if (indexFirst == -1) {
                 break;
             }
             var matchString = es.match(regex)[0];
@@ -378,19 +403,19 @@ Problem.prototype.validateEquationString = function(equationString) {
             //GOD this is a pain
             var numWithin = matchString.match(/(\d+)/)[0];
             var numWithinIndex = matchString.search(/(\d+)/);
-            var withinPart1 = matchString.substring(0,numWithinIndex);
+            var withinPart1 = matchString.substring(0, numWithinIndex);
             var withinPart2 = matchString.substring(numWithinIndex + numWithin.length);
 
-             var matchString = es.match(regex)[0];
+            var matchString = es.match(regex)[0];
             //extract just the number and get the rest
             //GOD this is a pain
             var numWithin = matchString.match(/(\d+)/)[0];
             var numWithinIndex = matchString.search(/(\d+)/);
-            var withinPart1 = matchString.substring(0,numWithinIndex);
+            var withinPart1 = matchString.substring(0, numWithinIndex);
             var withinPart2 = matchString.substring(numWithinIndex + numWithin.length);
             var matchLength = matchString.length;
 
-            var firstPart = es.substring(0,indexFirst);
+            var firstPart = es.substring(0, indexFirst);
             var secondPart = es.substring(indexFirst + matchLength);
 
             es = firstPart + withinPart1 + numWithin + ".0" + withinPart2 + secondPart;
@@ -401,31 +426,27 @@ Problem.prototype.validateEquationString = function(equationString) {
     return es;
 };
 
-var getSource = function(obj) {
-    if(obj.match)
-    {
-        //its a string, return it
-        return obj;
-    }
-    if(obj.length)
-    {
-        //its a jquery array, get first element and get the text there
-        return obj[0].text;
-    }
-    //its an html element
-    return obj.text;
-};
+var getSource = function (obj) {
+        if (obj.match) {
+            //its a string, return it
+            return obj;
+        }
+        if (obj.length) {
+            //its a jquery array, get first element and get the text there
+            return obj[0].text;
+        }
+        //its an html element
+        return obj.text;
+    };
 
-Problem.prototype.renderControlHTML = function() {
+Problem.prototype.renderControlHTML = function () {
     //this is a big pain
-
     $j('#equationStringTextArea').text(this.equationString);
 
     var sampleVarsToRender = this.baseSearchWindow.sampleVars.concat(['z']);
 
     var sampleVariablesHTML = "";
-    for(var i = 0; i < sampleVarsToRender.length; i++)
-    {
+    for (var i = 0; i < sampleVarsToRender.length; i++) {
         var varName = sampleVarsToRender[i];
 
         var minKey = 'min' + varName.toUpperCase();
@@ -440,16 +461,15 @@ Problem.prototype.renderControlHTML = function() {
 
         line = line + " Maximum ";
         line = line + '<span class="frobSpanner" id="' + maxKey + '">' + String(maxVal) + '</span>';
-        
+
         line = line + "</p>";
         sampleVariablesHTML = sampleVariablesHTML + line;
     }
 
     var fixedVariablesHTML = "";
-    for(var i = 0; i < this.baseSearchWindow.fixedVars.length; i++)
-    {
+    for (var i = 0; i < this.baseSearchWindow.fixedVars.length; i++) {
         var varName = this.baseSearchWindow.fixedVars[i];
-        
+
         //we need to construct the "key" here
         var key = "fixed" + varName.toUpperCase() + "val";
 
@@ -470,61 +490,56 @@ Problem.prototype.renderControlHTML = function() {
 
 };
 
-var ShaderTemplateRenderer = function(problem,fixedVars,vertexShaderSrc,fragShaderSrc) {
-    if(!vertexShaderSrc)
-    {
-        vertexShaderSrc = $j('#shader-box-vs');
+var ShaderTemplateRenderer = function (problem, fixedVars, vertexShaderSrc, fragShaderSrc) {
+        if (!vertexShaderSrc) {
+            vertexShaderSrc = $j('#shader-box-vs');
+        }
+        if (!fragShaderSrc) {
+            fragShaderSrc = $j('#shader-box-fs');
+        }
+        if (!fixedVars) {
+            fixedVars = [];
+        }
+
+        if (!problem) {
+            throw new Error("Specify a problem!");
+        }
+        //getSource takes in a string, an HTML element, or a jquery query
+        this.vertexShaderTemplateUniform = getSource(vertexShaderSrc);
+        this.vertexShaderTemplateRandom = getSource(vertexShaderSrc);
+        this.fragShaderTemplate = getSource(fragShaderSrc);
+
+        this.problem = problem;
+
+        //first format the templates, aka add the minimum / max attributes to the vertex shader and eliminate the hue stuff
+        this.formatTemplates();
+
+        var solvingObjectsUniform = this.buildShaders(this.problem.searchWindow2d.sampleVars, 'uniform');
+        var solvingObjectsRandom = this.buildShaders(this.problem.baseSearchWindow.sampleVars, 'random');
+
+        //first make a shader that just draws the surface
+        //in order to get a shader like this, we will grab the source code from the first uniform shader for the
+        //vertices and then simply use our old frag shader src
+        var graphicalShader = new myShader(solvingObjectsUniform.shaders[0].vShaderSrc, fragShaderSrc, problem.searchWindow2d.windowAttributes, false);
+
+        //now we have all the necessary shaders and extractors for an equation and everything. let's go build a solver
+        //with all of this
+        var solver = new Solver(this.problem, solvingObjectsUniform, solvingObjectsRandom, graphicalShader);
+
+        this.solver = solver;
+        //usually the template is not kept in memory, the solver is what the person is interested in
     }
-    if(!fragShaderSrc)
-    {
-        fragShaderSrc = $j('#shader-box-fs');
-    }
-    if(!fixedVars)
-    {
-        fixedVars = [];
-    }
 
-    if(!problem)
-    {
-        throw new Error("Specify a problem!");
-    }
-    //getSource takes in a string, an HTML element, or a jquery query
-    this.vertexShaderTemplateUniform = getSource(vertexShaderSrc);
-    this.vertexShaderTemplateRandom = getSource(vertexShaderSrc);
-    this.fragShaderTemplate = getSource(fragShaderSrc);
-
-    this.problem = problem;
-
-    //first format the templates, aka add the minimum / max attributes to the vertex shader and eliminate the hue stuff
-    this.formatTemplates();
-
-    var solvingObjectsUniform = this.buildShaders(this.problem.searchWindow2d.sampleVars,'uniform');
-    var solvingObjectsRandom = this.buildShaders(this.problem.baseSearchWindow.sampleVars,'random');
-
-    //first make a shader that just draws the surface
-    //in order to get a shader like this, we will grab the source code from the first uniform shader for the
-    //vertices and then simply use our old frag shader src
-    var graphicalShader = new myShader(solvingObjectsUniform.shaders[0].vShaderSrc,fragShaderSrc,problem.searchWindow2d.windowAttributes,false);
-
-    //now we have all the necessary shaders and extractors for an equation and everything. let's go build a solver
-    //with all of this
-
-    var solver = new Solver(this.problem,solvingObjectsUniform,solvingObjectsRandom,graphicalShader);
-
-    this.solver = solver;
-    //usually the template is not kept in memory, the solver is what the person is interested in
-}
-
-ShaderTemplateRenderer.prototype.formatTemplates = function() {
+ShaderTemplateRenderer.prototype.formatTemplates = function () {
     //first remove the hue code, its not needed
-    this.fragShaderTemplate = this.fragShaderTemplate.replace(/\/\/hueStart[\s\S]*?\/\/hueEnd/g,"");
+    this.fragShaderTemplate = this.fragShaderTemplate.replace(/\/\/hueStart[\s\S]*?\/\/hueEnd/g, "");
 
     /*******
-    * The big operation here is to replace the uniform attribute declaration of each shader
-    * with the proper variable names. The tricky part is that these variable names are different
-    * depending on the search window, so we basically have to do this twice with the uniform and
-    * base search windows
-    *********/
+     * The big operation here is to replace the uniform attribute declaration of each shader
+     * with the proper variable names. The tricky part is that these variable names are different
+     * depending on the search window, so we basically have to do this twice with the uniform and
+     * base search windows
+     *********/
 
     //next, add all the uniform variables for the two different windows we have
     var minmaxListRandom = this.problem.baseSearchWindow.minmaxList;
@@ -539,39 +554,35 @@ ShaderTemplateRenderer.prototype.formatTemplates = function() {
     var uniformsToAddRandom = "";
     var uniformsToAddUniform = "";
 
-    for(var i = 0; i < allToAddRandom.length; i++)
-    {
+    for (var i = 0; i < allToAddRandom.length; i++) {
         var thisLine = "uniform float " + allToAddRandom[i] + ";\n";
         uniformsToAddRandom = uniformsToAddRandom + thisLine;
     }
 
-    for(var i = 0; i < allToAddUniform.length; i++)
-    {
+    for (var i = 0; i < allToAddUniform.length; i++) {
         var thisLine = "uniform float " + allToAddUniform[i] + ";\n";
         uniformsToAddUniform = uniformsToAddUniform + thisLine;
     }
 
     //replace the uniform section with this
-    this.vertexShaderTemplateUniform = this.vertexShaderTemplateUniform.replace(/\/\/uniformStart[\s\S]*?\/\/uniformEnd/,uniformsToAddUniform);
-    this.vertexShaderTemplateRandom = this.vertexShaderTemplateRandom.replace(/\/\/uniformStart[\s\S]*?\/\/uniformEnd/,uniformsToAddRandom);
+    this.vertexShaderTemplateUniform = this.vertexShaderTemplateUniform.replace(/\/\/uniformStart[\s\S]*?\/\/uniformEnd/, uniformsToAddUniform);
+    this.vertexShaderTemplateRandom = this.vertexShaderTemplateRandom.replace(/\/\/uniformStart[\s\S]*?\/\/uniformEnd/, uniformsToAddRandom);
 
     //we should be done! Go do specific shader builds
 }
 
-ShaderTemplateRenderer.prototype.buildShaders = function(varsToSolve,type) {
+ShaderTemplateRenderer.prototype.buildShaders = function (varsToSolve, type) {
     //ok so essentially loop through in groups of 1-3 variables and compile the shader object to extract them
-
     //copy this array.
     var varsToSolve = varsToSolve.slice(0);
 
     var myShaders = [];
     var myExtractors = [];
 
-    while(varsToSolve.length > 0)
-    {
+    while (varsToSolve.length > 0) {
         //for now we do one variable per shader
         //OPTION for variables per shader
-        var varsToExtract = varsToSolve.splice(0,3);
+        var varsToExtract = varsToSolve.splice(0, 3);
 
         console.log("building shader for these vars");
         console.log(varsToExtract);
@@ -580,12 +591,9 @@ ShaderTemplateRenderer.prototype.buildShaders = function(varsToSolve,type) {
         //the shader will render this surface with these variables as the rgb
         var thisShader = null;
 
-        if(type == 'random')
-        {
+        if (type == 'random') {
             thisShader = this.buildRandomShaderForVariables(varsToExtract);
-        }
-        else
-        {
+        } else {
             thisShader = this.buildUniformShaderForVariables(varsToExtract);
         }
 
@@ -597,81 +605,85 @@ ShaderTemplateRenderer.prototype.buildShaders = function(varsToSolve,type) {
         myExtractors.push(thisExtractor);
     }
 
-    return {'shaders':myShaders,'extractors':myExtractors};
+    return {
+        'shaders': myShaders,
+        'extractors': myExtractors
+    };
 };
 
-ShaderTemplateRenderer.prototype.buildExtractorForVariables = function(varsToExtract) {
+ShaderTemplateRenderer.prototype.buildExtractorForVariables = function (varsToExtract) {
     //i know this code is a bit repetitive but I didn't want to further complicate it
-
     var minR = "min" + varsToExtract[0].toUpperCase();
     var maxR = "max" + varsToExtract[0].toUpperCase();
 
-    var minG = null; var maxG = null;
-    if(varsToExtract.length > 1)
-    {
+    var minG = null;
+    var maxG = null;
+    if (varsToExtract.length > 1) {
         minG = "min" + varsToExtract[1].toUpperCase();
         maxG = "max" + varsToExtract[1].toUpperCase();
     }
 
-    var minB = null; var maxB = null;
-    if(varsToExtract.length > 2)
-    {
+    var minB = null;
+    var maxB = null;
+    if (varsToExtract.length > 2) {
         minB = "min" + varsToExtract[2].toUpperCase();
         maxB = "max" + varsToExtract[2].toUpperCase();
     }
 
-    var extractor = function(colors,searchWindow) {
-        var rRange = searchWindow[maxR].val - searchWindow[minR].val;
-        var rPos = (colors.r / 255.0) * rRange + searchWindow[minR].val;
+    var extractor = function (colors, searchWindow) {
+            var rRange = searchWindow[maxR].val - searchWindow[minR].val;
+            var rPos = (colors.r / 255.0) * rRange + searchWindow[minR].val;
 
-        //we also need the original places in the grid in order to do graphical display of the minimum
-        var rPosOrig = (colors.r / 255.0) * 2 - 1;
+            //we also need the original places in the grid in order to do graphical display of the minimum
+            var rPosOrig = (colors.r / 255.0) * 2 - 1;
 
-        var gPos = null; var bPos = null; var gPosOrig = null; var bPosOrig = null;
-        if(minG)
-        {
-            var gRange = searchWindow[maxG].val - searchWindow[minG].val;
-            gPos = (colors.g / 255.0) * gRange + searchWindow[minG].val;
-            gPosOrig = (colors.g / 255.0) * 2 - 1;
-        }
-        if(minB)
-        {
-            var bRange = searchWindow[maxB].val - searchWindow[minB].val;
-            bPos = (colors.b / 255.0) * bRange + searchWindow[minB].val;
-            bPosOrig = (colors.b / 255.0) * 2 - 1;
-        }
+            var gPos = null;
+            var bPos = null;
+            var gPosOrig = null;
+            var bPosOrig = null;
+            if (minG) {
+                var gRange = searchWindow[maxG].val - searchWindow[minG].val;
+                gPos = (colors.g / 255.0) * gRange + searchWindow[minG].val;
+                gPosOrig = (colors.g / 255.0) * 2 - 1;
+            }
+            if (minB) {
+                var bRange = searchWindow[maxB].val - searchWindow[minB].val;
+                bPos = (colors.b / 255.0) * bRange + searchWindow[minB].val;
+                bPosOrig = (colors.b / 255.0) * 2 - 1;
+            }
 
-        var toReturn = {};
-        toReturn[varsToExtract[0]] = rPos;
-        toReturn[varsToExtract[0] + "Orig"] = rPosOrig;
+            var toReturn = {};
+            toReturn[varsToExtract[0]] = rPos;
+            toReturn[varsToExtract[0] + "Orig"] = rPosOrig;
 
-        if(gPos)
-        {
-            toReturn[varsToExtract[1]] = gPos;
-            toReturn[varsToExtract[1] + "Orig"] = gPosOrig;
-        }
-        if(bPos)
-        {
-            toReturn[varsToExtract[2]] = bPos;
-            toReturn[varsToExtract[2] + "Orig"] = bPosOrig;
-        }
-        return toReturn;
-    };
+            if (gPos) {
+                toReturn[varsToExtract[1]] = gPos;
+                toReturn[varsToExtract[1] + "Orig"] = gPosOrig;
+            }
+            if (bPos) {
+                toReturn[varsToExtract[2]] = bPos;
+                toReturn[varsToExtract[2] + "Orig"] = bPosOrig;
+            }
+            return toReturn;
+        };
 
     return extractor;
 };
 
-ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsToExtract,vShaderSrc) {
+ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function (varsToExtract, vShaderSrc) {
 
     //first copy the variable array
     varsToExtract = varsToExtract.slice(0);
 
     //stick in zeros where there is no variable
-    if(varsToExtract.length == 1) { varsToExtract = varsToExtract.concat(["0.0","0.0"]); }
-    if(varsToExtract.length == 2) { varsToExtract.push("0.0"); }
+    if (varsToExtract.length == 1) {
+        varsToExtract = varsToExtract.concat(["0.0", "0.0"]);
+    }
+    if (varsToExtract.length == 2) {
+        varsToExtract.push("0.0");
+    }
 
-    if(varsToExtract.length != 3)
-    {
+    if (varsToExtract.length != 3) {
         console.log(varsToExtract);
         throw new Error("what! something is wrong with variable length and array pushing");
     }
@@ -680,7 +692,6 @@ ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsT
     //the varying vec3 varData with our given variables in the correctly scaled manner. We have to declare all the variables the user wants as floats
     //And finally, we must assign the variables that we are sampling. For the two 'sample directions', these will be derived from their grid positions,
     //but for the fixed variables, it will be a fixed amount.
-
     var fShaderSrc = this.fragShaderTemplate;
 
     //here we need all the variables in the problem...
@@ -688,20 +699,18 @@ ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsT
     //the declaration as floats
     var varDeclarationString = "float " + allVariables.join(',') + ';';
     //replace it
-    vShaderSrc = vShaderSrc.replace(/\/\/varDeclaration[\s\S]*?\/\/varDeclarationEnd/,varDeclarationString);
+    vShaderSrc = vShaderSrc.replace(/\/\/varDeclaration[\s\S]*?\/\/varDeclarationEnd/, varDeclarationString);
 
     //the template for the varData assignment
     var varDataString = "varData = vec3(%var0,%var1,%var2);\n";
 
     //insert variable strings into the vardata assignment or 0.0 if there's no variable there
-    for(var i = 0; i < 3; i++)
-    {
-        if(varsToExtract[i] == "0.0")
-        {
-            varDataString = varDataString.replace("%var" + String(i),varsToExtract[i]);
+    for (var i = 0; i < 3; i++) {
+        if (varsToExtract[i] == "0.0") {
+            varDataString = varDataString.replace("%var" + String(i), varsToExtract[i]);
             continue;
         }
-        
+
         //we need to scale these variables to a 0->1 range
         //as well for the extractors to work property
         var min = "min" + varsToExtract[i].toUpperCase();
@@ -709,22 +718,25 @@ ShaderTemplateRenderer.prototype.doBaseShaderTemplateFormatting = function(varsT
 
         var scaled = "(" + varsToExtract[i] + " - " + min + ")/(" + max + " - " + min + ")";
 
-        varDataString = varDataString.replace("%var" + String(i),scaled);
+        varDataString = varDataString.replace("%var" + String(i), scaled);
     }
 
     //vardata assignment string
-    vShaderSrc = vShaderSrc.replace(/\/\/varDataAssignment[\s\S]*?\/\/varDataAssignmentEnd/,varDataString);
+    vShaderSrc = vShaderSrc.replace(/\/\/varDataAssignment[\s\S]*?\/\/varDataAssignmentEnd/, varDataString);
 
     //equation string replace
-    vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/,this.problem.equationString);
+    vShaderSrc = vShaderSrc.replace(/\/\/equationString[\s\S]*?\/\/equationStringEnd/, this.problem.equationString);
 
-    return {'vShaderSrc':vShaderSrc,'fShaderSrc':fShaderSrc};
+    return {
+        'vShaderSrc': vShaderSrc,
+        'fShaderSrc': fShaderSrc
+    };
 
 };
 
-ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsToExtract) {
+ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function (varsToExtract) {
 
-    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract,this.vertexShaderTemplateUniform);
+    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract, this.vertexShaderTemplateUniform);
 
     var vShaderSrc = baseSource.vShaderSrc;
     var fShaderSrc = baseSource.fShaderSrc;
@@ -732,22 +744,18 @@ ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsT
     //here we must also change the variable assignments for the "sample directions."
     //For all the sample variables, their value is based on the grid, but for the fixed variables,
     //it's a buffered value on the GPU that we will just assign
-
     var sampleVars = this.problem.searchWindow2d.sampleVars;
     var fixedVars = this.problem.searchWindow2d.fixedVars;
 
     var varAssignmentBlock = "";
 
-    if(sampleVars.length > 2)
-    {
+    if (sampleVars.length > 2) {
         throw new Error("we cant sample more than 2 variables at once in 3d space!");
     }
 
     //for the sample variables it needs to be:
     //x = ((aVertexPosition[variableIndex] + 1.0)/(2.0)) * (maxX - minX) + minX;
-
-    for(var i = 0; i < sampleVars.length; i++)
-    {
+    for (var i = 0; i < sampleVars.length; i++) {
         var min = "min" + sampleVars[i].toUpperCase();
         var max = "max" + sampleVars[i].toUpperCase();
 
@@ -760,8 +768,7 @@ ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsT
 
     //for the fixed variables it needs to be:
     //g = fixedGval;
-    for(var i = 0; i < fixedVars.length; i++)
-    {
+    for (var i = 0; i < fixedVars.length; i++) {
         var fixed = "fixed" + fixedVars[i].toUpperCase() + "val";
 
         var line = fixedVars[i] + " = " + fixed + ";\n";
@@ -770,55 +777,55 @@ ShaderTemplateRenderer.prototype.buildUniformShaderForVariables = function(varsT
     }
 
     //replace entire assignment block
-    vShaderSrc = vShaderSrc.replace(/\/\/varAssignment[\s\S]*?\/\/varAssignmentEnd/,varAssignmentBlock); 
+    vShaderSrc = vShaderSrc.replace(/\/\/varAssignment[\s\S]*?\/\/varAssignmentEnd/, varAssignmentBlock);
 
     /****Source code modification done!***/
 
     //now that we have our sources, go compile our shader object with these sources
-    var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.searchWindow2d.windowAttributes,false);
+    var shaderObj = new myShader(vShaderSrc, fShaderSrc, this.problem.searchWindow2d.windowAttributes, false);
 
     console.log("Generated Shader uniform source for vertex!");
     //console.log(vShaderSrc);
-    console.log({'src':vShaderSrc});
+    console.log({
+        'src': vShaderSrc
+    });
     console.log("Generated shader uniform source for frag!");
     //console.log(fShaderSrc);
-    console.log({'src':fShaderSrc});
+    console.log({
+        'src': fShaderSrc
+    });
 
     return shaderObj;
 };
 
-ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsToExtract) {
+ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function (varsToExtract) {
 
     //grab the base source and format the easy stuff
-    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract,this.vertexShaderTemplateRandom);
+    var baseSource = this.doBaseShaderTemplateFormatting(varsToExtract, this.vertexShaderTemplateRandom);
 
     var vShaderSrc = baseSource.vShaderSrc;
     var fShaderSrc = baseSource.fShaderSrc;
 
     //now we must do every single sample variable assignment with the myRand() function and indexes to spice up the randomness
     //except fix the fixed variables
-
     var sampleVars = this.problem.baseSearchWindow.sampleVars;
     var fixedVars = this.problem.baseSearchWindow.fixedVars;
 
     var varAssignmentBlock = "";
 
-    for(var i = 0; i < sampleVars.length; i++)
-    {
+    for (var i = 0; i < sampleVars.length; i++) {
         var min = "min" + sampleVars[i].toUpperCase();
         var max = "max" + sampleVars[i].toUpperCase();
-        var iFloat = String(i+1) + ".0";
+        var iFloat = String(i + 1) + ".0";
 
         var line = sampleVars[i] + " = ";
         //an example of the compiled line is:
         //x = myRand(pow(i,3.0) + i * i * float(aVertexPosition[0]) * 17 + i * float(aVertexPosition[1]) * 100) * (maxX - minX) + minX;
         //--or with time--
         //x = myRand(pow(i + time,3.0) + i * i * time * float(aVertexPosition[0]) * 17 + i * pow(time,2.0) * float(aVertexPosition[1]) * 100) * (maxX - minX) + minX;
-
         //without time
         //line = line + "myRand(pow(" + iFloat + ",3.0) + " + iFloat + " * " + iFloat + " * " + "float(aVertexPosition[0]) * 17.0";
         //line = line + " + " + iFloat + " * float(aVertexPosition[1]) * 100.0) * (" + max + " - " + min + ") + " + min + ";\n";
-
         //with time
         line = line + "myRand(pow(" + iFloat + " + time,3.0) + " + iFloat + " * " + iFloat + " * " + " time * float(aVertexPosition[0]) * 17.0";
         line = line + " + " + iFloat + " * pow(time,2.0) * float(aVertexPosition[1]) * 100.0 + time) * (" + max + " - " + min + ") + " + min + ";\n";
@@ -826,8 +833,7 @@ ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsTo
         varAssignmentBlock = varAssignmentBlock + line;
     }
 
-    for(var i = 0; i < fixedVars.length; i++)
-    {
+    for (var i = 0; i < fixedVars.length; i++) {
         var fixed = "fixed" + fixedVars[i].toUpperCase() + "val";
 
         var line = fixedVars[i] + " = " + fixed + ";\n";
@@ -836,30 +842,34 @@ ShaderTemplateRenderer.prototype.buildRandomShaderForVariables = function(varsTo
     }
 
     //replace entire assignments block
-    vShaderSrc = vShaderSrc.replace(/\/\/varAssignment[\s\S]*?\/\/varAssignmentEnd/,varAssignmentBlock);
+    vShaderSrc = vShaderSrc.replace(/\/\/varAssignment[\s\S]*?\/\/varAssignmentEnd/, varAssignmentBlock);
 
     /***Source code modification done****/
 
-    var shaderObj = new myShader(vShaderSrc,fShaderSrc,this.problem.baseSearchWindow.windowAttributes,false);
+    var shaderObj = new myShader(vShaderSrc, fShaderSrc, this.problem.baseSearchWindow.windowAttributes, false);
 
     console.log("Generated Shader random source for vertex!");
-    console.log({'src':vShaderSrc});
+    console.log({
+        'src': vShaderSrc
+    });
     //console.log(vShaderSrc);
     console.log("Generated shader random source for frag!");
     //console.log(fShaderSrc);
-    console.log({'src':fShaderSrc});
+    console.log({
+        'src': fShaderSrc
+    });
 
     return shaderObj;
 };
 
 //this class will take in minimums from both networking and the hosts and update the DOM when a new one is found.
-var MinimumSaver = function(problem) {
+var MinimumSaver = function (problem) {
     this.minHostPos = null;
     this.minNetworkPos = null;
     this.problem = problem;
 
     this.minHostElem = $j('#hostMinimum')[0];
-    this.minNetworkElem  = $j('#networkMinimum')[0];
+    this.minNetworkElem = $j('#networkMinimum')[0];
 
     this.active = true;
 
@@ -868,16 +878,14 @@ var MinimumSaver = function(problem) {
     $j(this.minNetworkElem).html(blankMin);
 };
 
-MinimumSaver.prototype.isBetter = function(minOne,minTwo) {
+MinimumSaver.prototype.isBetter = function (minOne, minTwo) {
     //if our existing one is not defined, then its certainly better
-    if(!minTwo)
-    {
+    if (!minTwo) {
         return true;
     }
 
     //similarly if we are replacing a valid with null, dont do that
-    if(!minOne)
-    {
+    if (!minOne) {
         return false;
     }
 
@@ -885,26 +893,24 @@ MinimumSaver.prototype.isBetter = function(minOne,minTwo) {
     return minOne.z <= minTwo.z;
 };
 
-MinimumSaver.prototype.isStrictlyBetter = function(minOne,minTwo) {
-    if(!minOne || !minTwo)
-    {
+MinimumSaver.prototype.isStrictlyBetter = function (minOne, minTwo) {
+    if (!minOne || !minTwo) {
         return false;
     }
     return minOne.z < minTwo.z;
 };
 
-MinimumSaver.prototype.updateDom = function(elem,pos,time) {
+MinimumSaver.prototype.updateDom = function (elem, pos, time) {
 
     //look through our sample variables and post which ones
     var domHtml = "";
 
     var sampleVars = this.problem.baseSearchWindow.sampleVars.concat(['z']);
 
-    for(var i = 0; i < sampleVars.length; i++)
-    {
+    for (var i = 0; i < sampleVars.length; i++) {
         var name = sampleVars[i];
         var value = pos[name];
-        domHtml = domHtml + "<p>" + name + ": " + String(value).substring(0,5);
+        domHtml = domHtml + "<p>" + name + ": " + String(value).substring(0, 5);
         domHtml = domHtml + "</p>";
     }
     //also need a time
@@ -915,113 +921,106 @@ MinimumSaver.prototype.updateDom = function(elem,pos,time) {
     $j(elem).html(domHtml);
 };
 
-MinimumSaver.prototype.postHostResults = function(newMinPos) {
-    if(!this.active)
-    {
+MinimumSaver.prototype.postHostResults = function (newMinPos) {
+    if (!this.active) {
         return;
     }
 
-    if(!this.isBetter(newMinPos,this.minHostPos))
-    {
+    if (!this.isBetter(newMinPos, this.minHostPos)) {
         //bounce out, because its not better
         return;
     }
 
     //we want to update the dom when we reach an equivalent min, but
     //we only want to broadcast when its strictly better
-    var trulyBetter = this.isStrictlyBetter(newMinPos,this.minHostPos);
+    var trulyBetter = this.isStrictlyBetter(newMinPos, this.minHostPos);
 
     //we have a new minimum!
     this.minHostPos = newMinPos;
 
     //update the dom
-    this.updateDom(this.minHostElem,this.minHostPos);
+    this.updateDom(this.minHostElem, this.minHostPos);
 
     //set a timer to tell the network
-    if(trulyBetter && !this.broadcastTimer)
-    {
+    if (trulyBetter && !this.broadcastTimer) {
         var _this = this;
-        this.broadcastTimer = setTimeout(function() {
+        this.broadcastTimer = setTimeout(function () {
             _this.broadcastMin();
-        },1000);
+        }, 1000);
     }
 };
 
-MinimumSaver.prototype.broadcastMin = function() {
+MinimumSaver.prototype.broadcastMin = function () {
     this.broadcastTimer = null;
 
-    if(window.now && window.now.distributeMinimum)
-    {
-        now.distributeMinimum(this.minHostPos); 
+    if (window.now && window.now.distributeMinimum) {
+        now.distributeMinimum(this.minHostPos);
     }
 };
 
-MinimumSaver.prototype.receiveNetworkMin = function(networkMin) {
-    if(!this.active) { return; }
-    if(!this.isBetter(networkMin,this.minNetworkPos))
-    {  
+MinimumSaver.prototype.receiveNetworkMin = function (networkMin) {
+    if (!this.active) {
+        return;
+    }
+    if (!this.isBetter(networkMin, this.minNetworkPos)) {
         return;
     }
 
     this.minNetworkPos = networkMin;
 
-    this.updateDom(this.minNetworkElem,this.minNetworkPos);
+    this.updateDom(this.minNetworkElem, this.minNetworkPos);
 };
 
 //the SOLVER, it will solve for the minimum given a problem / window and everything :D
-var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
-    this.problem = problem;
-    this.baseSearchWindow = problem.baseSearchWindow;
-    this.searchWindow2d = problem.searchWindow2d;
-    this.graphicalShader = graphicalShader;
+var Solver = function (problem, uniformObjects, randomObjects, graphicalShader) {
+        this.problem = problem;
+        this.baseSearchWindow = problem.baseSearchWindow;
+        this.searchWindow2d = problem.searchWindow2d;
+        this.graphicalShader = graphicalShader;
 
-    this.minSaver = new MinimumSaver(problem);
+        this.minSaver = new MinimumSaver(problem);
 
-    this.zoomWindows = [];
+        this.zoomWindows = [];
 
-    var now = new Date();
-    this.createTime = now.getTime();
+        var now = new Date();
+        this.createTime = now.getTime();
 
-    //here the shaders and extractors are tied to each other by index. not exactly elegant by good for now,
-    //possible refactor but all the object does is just pass the rgb to the extractor and return.
-    this.uniformShaders = uniformObjects.shaders;
-    this.uniformExtractors = uniformObjects.extractors;
+        //here the shaders and extractors are tied to each other by index. not exactly elegant by good for now,
+        //possible refactor but all the object does is just pass the rgb to the extractor and return.
+        this.uniformShaders = uniformObjects.shaders;
+        this.uniformExtractors = uniformObjects.extractors;
 
-    this.randomShaders = randomObjects.shaders;
-    this.randomExtractors = randomObjects.extractors;
+        this.randomShaders = randomObjects.shaders;
+        this.randomExtractors = randomObjects.extractors;
 
-    this.createFrameBuffer();
+        this.createFrameBuffer();
 
-    var _this = this;
-    $j('.unfixButton').live('mousedown',function(e) {
-        _this.unfixVariable(e);
-    });
+        var _this = this;
+        $j('.unfixButton').live('mousedown', function (e) {
+            _this.unfixVariable(e);
+        });
 
-    //also clear canvases
-    $j('.screenshotCanvas').remove();
+        //also clear canvases
+        $j('.screenshotCanvas').remove();
 
-    //initial set of the window on the shaders
-    this.setWindowOnShaders(this.uniformShaders,this.searchWindow2d);
-    this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
-}
+        //initial set of the window on the shaders
+        this.setWindowOnShaders(this.uniformShaders, this.searchWindow2d);
+        this.setWindowOnShaders(this.randomShaders, this.baseSearchWindow);
+    }
 
-Solver.prototype.unfixVariable = function(e) {
+Solver.prototype.unfixVariable = function (e) {
     //get the id of the variable we are going to unfix
-
-    console.log('unfixing',e);
+    console.log('unfixing', e);
     var varName = $j(e.srcElement).attr('id');
 
-    console.log("unfixing variable ",varName);
+    console.log("unfixing variable ", varName);
 
     //get our fixedVariables, and dont add varname when copying
-
     var newFixed = [];
     var fixedVars = this.baseSearchWindow.fixedVars;
-    for(var i = 0; i < fixedVars.length; i++)
-    {
+    for (var i = 0; i < fixedVars.length; i++) {
         var fv = fixedVars[i];
-        if(fv != varName)
-        {
+        if (fv != varName) {
             newFixed.push(fv);
         }
     }
@@ -1035,7 +1034,7 @@ Solver.prototype.unfixVariable = function(e) {
     changeRoomEquation(eInfo);
 };
 
-Solver.prototype.createFrameBuffer = function() {
+Solver.prototype.createFrameBuffer = function () {
 
     //ok lets make a frame buffer for our own solving reasons
     this.frameBuffer = gl.createFramebuffer();
@@ -1048,7 +1047,7 @@ Solver.prototype.createFrameBuffer = function() {
 
     //default frame buffer sizes (framebuffer sizes)
     //bind the framebuffer for the following operations
-    gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
 
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -1059,33 +1058,30 @@ Solver.prototype.createFrameBuffer = function() {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.frameBuffer.width, this.frameBuffer.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
     //now bind renderbuffer and do storage
-    gl.bindRenderbuffer(gl.RENDERBUFFER,this.renderBuffer);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderBuffer);
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.frameBuffer.width, this.frameBuffer.height);
 
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.renderBuffer);
 
     //reset all
-    gl.bindTexture(gl.TEXTURE_2D,null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
-    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 };
 
-Solver.prototype.graphicalDraw = function(cameraUpdates) {
+Solver.prototype.graphicalDraw = function (cameraUpdates) {
     this.graphicalShader.drawGrid(cameraUpdates);
 };
 
-Solver.prototype.solvePass = function() {
+Solver.prototype.solvePass = function () {
 
     var numSampleVars = this.problem.baseSearchWindow.sampleVars.length;
 
     //first, dispatch to the appropriate N-d wrappers
-    if(numSampleVars == 2)
-    {
+    if (numSampleVars == 2) {
         results = this.easy2dSolveWrapper();
-    }
-    else if(numSampleVars > 2)
-    {
+    } else if (numSampleVars > 2) {
         results = this.nDSolveWrapper();
     }
 
@@ -1094,39 +1090,59 @@ Solver.prototype.solvePass = function() {
     return results.ballPos;
 };
 
-Solver.prototype.nDSolveWrapper = function() {
+Solver.prototype.nDSolveWrapper = function () {
     /* heres the deal. we kinda want to randomly n-d solve to get an
        investigation point, and then uniformly "zoom" on that investigation point
        to investigate and get a minimum. so it goes:
             nD random -> nD uniform zoom
        */
 
-    this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
+    this.setWindowOnShaders(this.randomShaders, this.baseSearchWindow);
     this.updateTimeOnAll();
 
     var results = this.easyRandomSolve();
 
-    if(!results)
-    {
-        return {'ballPos':
-                    {'xOrig':0,
-                     'yOrig':0,
-                     'zOrig':0}};
+    if (!results) {
+        return {
+            'ballPos': {
+                'xOrig': 0,
+                'yOrig': 0,
+                'zOrig': 0
+            }
+        };
     }
     this.handleExtendZ(results);
 
     var pos = results.minPos;
 
-    //TODO -> zoom window and ND uniform zoom
-    var ballPos = this.convertBallPosition(pos);
+    //first post the results so we can get the min
+    this.minSaver.postHostResults(pos);
 
-    return {'ballPos':ballPos,'minFound':pos};
+    //then get the min
+    var recordMin = this.minSaver.minHostPos;
+
+    //update our searchwindow2
+    this.searchWindow2d.updateFromNdPos(recordMin);
+    this.searchWindow2d.updateBoundsOnZ(this.baseSearchWindow);
+    this.setWindowOnShaders([this.graphicalShader],this.searchWindow2d);
+
+    //the draw happens outside this loop
+
+    //TODO -> zoom window and ND uniform zoom
+
+    //here we give it the current "best" we have found rather than this frame
+    //because it's ND
+    var ballPos = this.convertBallPosition(recordMin);
+
+    return {
+        'ballPos': ballPos,
+        'minFound': pos
+    };
 };
 
-Solver.prototype.handleExtendZ = function(results) {
+Solver.prototype.handleExtendZ = function (results) {
 
-    if(results.increaseZ)
-    {
+    if (results.increaseZ) {
         console.log("increasing z");
         this.baseSearchWindow.windowAttributes.minZ.val += 1;
         this.baseSearchWindow.windowAttributes.maxZ.val += 1.1;
@@ -1136,38 +1152,32 @@ Solver.prototype.handleExtendZ = function(results) {
         this.baseSearchWindow.windowAttributes.minZ.val -= 1;
         this.baseSearchWindow.windowAttributes.maxZ.val -= 0.9;
     }
-    if(results.decreaseZ || results.increaseZ)
-    {
+    if (results.decreaseZ || results.increaseZ) {
         //update the control UI
-        $j('#minZ').html(String(this.baseSearchWindow.windowAttributes.minZ.val
-                        ).substring(0,5));
-        $j('#maxZ').html(String(this.baseSearchWindow.windowAttributes.maxZ.val
-                        ).substring(0,5));
+        $j('#minZ').html(String(this.baseSearchWindow.windowAttributes.minZ.val).substring(0, 5));
+        $j('#maxZ').html(String(this.baseSearchWindow.windowAttributes.maxZ.val).substring(0, 5));
     }
 };
 
-Solver.prototype.easy2dSolveWrapper = function() {
+Solver.prototype.easy2dSolveWrapper = function () {
 
     this.updateTimeOnAll();
-    this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+    this.setWindowOnShaders(this.uniformShaders, this.baseSearchWindow);
 
     //first do a coarsely-sampled 2d solve
     var results = this.easyUniformSolve();
-    if(theSwitch)
-    {
+    if (theSwitch) {
         results = this.easyRandomSolve();
     }
     //SWITCH: if we want uniform or random solve
-
     //if it breaks, go reset the window
-    if(!results)
-    {
+    if (!results) {
         this.baseSearchWindow.reset();
-        this.setWindowOnShaders(this.uniformShaders,this.baseSearchWindow);
+        this.setWindowOnShaders(this.uniformShaders, this.baseSearchWindow);
         results = this.easyUniformSolve();
     }
 
-    if(!results) //if its still broken, we might be waiting for the gpu to buffer or something
+    if (!results) //if its still broken, we might be waiting for the gpu to buffer or something
     {
         return;
     }
@@ -1177,23 +1187,22 @@ Solver.prototype.easy2dSolveWrapper = function() {
     var pos = results.minPos;
 
     //then make a zoom window on this coarse solution and further zoom in
-    var zoomWindow = this.baseSearchWindow.makeZoomWindow(pos,0.05);
-    this.setWindowOnShaders(this.uniformShaders,zoomWindow);
+    var zoomWindow = this.baseSearchWindow.makeZoomWindow(pos, 0.05);
+    this.setWindowOnShaders(this.uniformShaders, zoomWindow);
 
     //get the 2d solve results with the zoomed window
     var zoomResults = this.easyUniformSolve(zoomWindow.windowAttributes);
     var zoomPos = zoomResults.minPos;
 
-    if(!asd) //debug
+    if (!asd) //debug
     {
-        console.log("zoompos",zoomPos," and pos", pos);
-        console.log("zoom window",zoomWindow,'normal window',this.baseSearchWindow);
+        console.log("zoompos", zoomPos, " and pos", pos);
+        console.log("zoom window", zoomWindow, 'normal window', this.baseSearchWindow);
         asd = true;
     }
 
     //now go ahead and update the original "pos" result with the more accurate results,
     //both for the x and y but also reconstructing the xOrig and yOrig
-
     pos.x = zoomPos.x;
     pos.y = zoomPos.y;
     pos.z = zoomPos.z;
@@ -1201,18 +1210,20 @@ Solver.prototype.easy2dSolveWrapper = function() {
     var ballPos = this.convertBallPosition(pos);
 
     //reset our search window
-    this.setWindowOnShaders(this.uniformShaders,this.problem.baseSearchWindow);
-    return {'ballPos':ballPos,'minFound':pos};
+    this.setWindowOnShaders(this.uniformShaders, this.problem.baseSearchWindow);
+    return {
+        'ballPos': ballPos,
+        'minFound': pos
+    };
 };
 
-Solver.prototype.convertBallPosition = function(pos) {
+Solver.prototype.convertBallPosition = function (pos) {
 
     ballPos = {};
     ballPos.zOrig = pos.zOrig;
-    ballKeys = ['xOrig','yOrig'];
+    ballKeys = ['xOrig', 'yOrig'];
 
-    for(var i = 0; i < 2; i++)
-    {
+    for (var i = 0; i < 2; i++) {
         var varName = this.baseSearchWindow.sampleVars[i];
         var v = varName;
         var minV = "min" + v.toUpperCase();
@@ -1220,32 +1231,28 @@ Solver.prototype.convertBallPosition = function(pos) {
         var minVval = this.baseSearchWindow.windowAttributes[minV].val;
         var maxVval = this.baseSearchWindow.windowAttributes[maxV].val;
 
-        ballPos[ballKeys[i]] = (pos[v] - minVval)/(maxVval - minVval) * 2 - 1;
+        ballPos[ballKeys[i]] = (pos[v] - minVval) / (maxVval - minVval) * 2 - 1;
     }
     return ballPos;
 };
 
 
-Solver.prototype.setWindowOnShaders = function(shaders,searchWindow) {
-    for(var i = 0; i < shaders.length; i++)
-    {
+Solver.prototype.setWindowOnShaders = function (shaders, searchWindow) {
+    for (var i = 0; i < shaders.length; i++) {
         shaders[i].updateAttributes(searchWindow.windowAttributes);
     }
 };
 
-Solver.prototype.updateTimeOnAll = function() {
+Solver.prototype.updateTimeOnAll = function () {
 
     //if the problem wants time in order to drive the simulation, 
     //go ahead and buffer it onto all the shaders i contain
-
     var now = new Date();
     var deltaT = (now.getTime() - startTime) / 1000.0;
 
     //here we need to "reset" the time if our delta T gets too high
     //because the pseudo random number generator starts to bias towards 0 :(
-
-    if(deltaT > 30)
-    {
+    if (deltaT > 30) {
         startTime = now.getTime();
         deltaT = 0.1;
     }
@@ -1253,40 +1260,35 @@ Solver.prototype.updateTimeOnAll = function() {
     //set it on our search windows?
     this.baseSearchWindow.windowAttributes.time.val = deltaT;
 
-    for(var i = 0; i < this.uniformShaders.length; i++)
-    {
+    for (var i = 0; i < this.uniformShaders.length; i++) {
         this.uniformShaders[i].updateTime(deltaT);
     }
-    for(var i = 0; i < this.randomShaders.length; i++)
-    {
+    for (var i = 0; i < this.randomShaders.length; i++) {
         this.randomShaders[i].updateTime(deltaT);
     }
 };
 
 
-Solver.prototype.easyRandomSolve = function(searchWindowAttributes) {
+Solver.prototype.easyRandomSolve = function (searchWindowAttributes) {
     //this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
-
-    return this.executeShadersAndExtractors(searchWindowAttributes,this.randomShaders,this.randomExtractors);
+    return this.executeShadersAndExtractors(searchWindowAttributes, this.randomShaders, this.randomExtractors);
 };
 
-Solver.prototype.easyUniformSolve = function(searchWindowAttributes) {
-    return this.executeShadersAndExtractors(searchWindowAttributes,this.uniformShaders,this.uniformExtractors);
+Solver.prototype.easyUniformSolve = function (searchWindowAttributes) {
+    return this.executeShadersAndExtractors(searchWindowAttributes, this.uniformShaders, this.uniformExtractors);
 };
 
 
-Solver.prototype.executeShadersAndExtractors = function(searchWindowAttributes,whichShaders, whichExtractors) {
+Solver.prototype.executeShadersAndExtractors = function (searchWindowAttributes, whichShaders, whichExtractors) {
 
     var offSet = 0; //an offset for the screenshots
-
     //switch to the frame buffer that's hidden! so we can do our drawing for solving here
-    gl.bindFramebuffer(gl.FRAMEBUFFER,this.frameBuffer);
-    gl.viewport(0,0, this.frameBuffer.width, this.frameBuffer.height);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
+    gl.viewport(0, 0, this.frameBuffer.width, this.frameBuffer.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     //this function is only called when there are 2 sample variables, so we can use the baseSearchWindow
-    if(!searchWindowAttributes)
-    {
+    if (!searchWindowAttributes) {
         offSet = 2; //if we are solving on a zoomed window, dump 2 different screenshots
         searchWindowAttributes = this.baseSearchWindow.windowAttributes;
     }
@@ -1296,26 +1298,24 @@ Solver.prototype.executeShadersAndExtractors = function(searchWindowAttributes,w
     //and then pass that into the extractor to get the positions
     var totalMinPosition = {};
 
-    for(var passIndex = 0; passIndex < whichShaders.length; passIndex++)
-    {
+    for (var passIndex = 0; passIndex < whichShaders.length; passIndex++) {
         //call CLEAR on the frame buffer between each draw
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         //draws the surface with the right coloring
         whichShaders[passIndex].drawGrid();
-        
+
         //get the RGB on the current frame buffer for this surface
-        var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height,this.frameBuffer.width);
+        var colors = findRGBofBottomFrameBuffer(this.frameBuffer.height, this.frameBuffer.width);
 
         //interactive mode
-        dumpScreenShot(this.frameBuffer.height,this.frameBuffer.width,passIndex+offSet);
-        
-        if(colors.noneFound) //this occurs for a while once we boot, so only return null after a 3 seconds
+        dumpScreenShot(this.frameBuffer.height, this.frameBuffer.width, passIndex + offSet);
+
+        if (colors.noneFound) //this occurs for a while once we boot, so only return null after a 3 seconds
         {
             var now = new Date();
             var nowTime = now.getTime();
-            if(nowTime - this.createTime > 3 * 1000)
-            {
+            if (nowTime - this.createTime > 3 * 1000) {
                 console.warn("none found after bootup time, resetting window :O");
                 return null;
             }
@@ -1325,13 +1325,12 @@ Solver.prototype.executeShadersAndExtractors = function(searchWindowAttributes,w
         var cvs = $j('#screenshot' + String(passIndex + offSet))[0];
         var ctx = cvs.getContext('2d');
         ctx.fillStyle = "rgb(255,255,255)";
-        ctx.fillRect(colors.col - 2,this.frameBuffer.height - colors.row - 2,4,4);
+        ctx.fillRect(colors.col - 2, this.frameBuffer.height - colors.row - 2, 4, 4);
 
-        var thesePositions = whichExtractors[passIndex](colors,searchWindowAttributes);
+        var thesePositions = whichExtractors[passIndex](colors, searchWindowAttributes);
 
         //merge these positions into the global solution
-        for(key in thesePositions)
-        {
+        for (key in thesePositions) {
             totalMinPosition[key] = thesePositions[key];
         }
     }
@@ -1353,104 +1352,101 @@ Solver.prototype.executeShadersAndExtractors = function(searchWindowAttributes,w
     totalMinPosition.z = trueZ;
 
     //switch back from the frame buffer
-    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     //return the results
-    return {'minPos':totalMinPosition,'increaseZ':shouldIncreaseZ,'decreaseZ':shouldDecreaseZ};
+    return {
+        'minPos': totalMinPosition,
+        'increaseZ': shouldIncreaseZ,
+        'decreaseZ': shouldDecreaseZ
+    };
 }
 
 
-var myShader = function(vShaderSrc,fShaderSrc,uniformAttributes,isBall) {
-    this.vShaderSrc = getSource(vShaderSrc);
-    this.fShaderSrc = getSource(fShaderSrc);
+var myShader = function (vShaderSrc, fShaderSrc, uniformAttributes, isBall) {
+        this.vShaderSrc = getSource(vShaderSrc);
+        this.fShaderSrc = getSource(fShaderSrc);
 
-    //force it to include time as well, even if its not explicity in the equation
-    uniformAttributes.time = {type:'f','val':0};
+        //force it to include time as well, even if its not explicity in the equation
+        uniformAttributes.time = {
+            type: 'f',
+            'val': 0
+        };
 
-    this.uniformAttributes = uniformAttributes;
-    this.shaderProgram = null;
+        this.uniformAttributes = uniformAttributes;
+        this.shaderProgram = null;
 
-    if(isBall)
-    {
-        this.isBall = true;
-    }
-    else
-    {
-        this.isBall = false;
-    }
+        if (isBall) {
+            this.isBall = true;
+        } else {
+            this.isBall = false;
+        }
 
-    this.buildShader();
-    this.buildAttributes();
-    this.bufferUniforms();
-};
+        this.buildShader();
+        this.buildAttributes();
+        this.bufferUniforms();
+    };
 
-myShader.prototype.buildShader = function() {
-    var vShader = compileShader(this.vShaderSrc,"vertex");
-    var fShader = compileShader(this.fShaderSrc,"frag");
+myShader.prototype.buildShader = function () {
+    var vShader = compileShader(this.vShaderSrc, "vertex");
+    var fShader = compileShader(this.fShaderSrc, "frag");
 
     this.shaderProgram = gl.createProgram();
-    gl.attachShader(this.shaderProgram,vShader);
-    gl.attachShader(this.shaderProgram,fShader);
+    gl.attachShader(this.shaderProgram, vShader);
+    gl.attachShader(this.shaderProgram, fShader);
     gl.linkProgram(this.shaderProgram);
 
     var linkStatus = gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS);
 
-    if(linkStatus != true)
-    {
-        console.warn("could not init shader",this.vShaderSrc);
+    if (linkStatus != true) {
+        console.warn("could not init shader", this.vShaderSrc);
     }
 }
 
-myShader.prototype.buildAttributes = function() {
+myShader.prototype.buildAttributes = function () {
     this.switchToShader();
 
     //always vertices as well
-    this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexPosition");
+    this.shaderProgram.vertexPositionAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexPosition");
     gl.enableVertexAttribArray(this.shaderProgram.vertexPositionAttribute);
 
-    if(this.isBall)
-    {
+    if (this.isBall) {
         //we also need color for the ball
-        this.shaderProgram.vertexColorAttribute = gl.getAttribLocation(this.shaderProgram,"aVertexColor");
+        this.shaderProgram.vertexColorAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexColor");
         gl.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
     }
 
     //do all the uniforms
-    for(key in this.uniformAttributes)
-    {
+    for (key in this.uniformAttributes) {
         var varName = key;
         var varLocation = varName + "location";
         //console.log("adding this",varName,"to location",varLocation);
-        this.shaderProgram[varLocation] = gl.getUniformLocation(this.shaderProgram,varName);
+        this.shaderProgram[varLocation] = gl.getUniformLocation(this.shaderProgram, varName);
     }
 };
 
-myShader.prototype.drawGrid = function(matrixAttributeUpdates) {
+myShader.prototype.drawGrid = function (matrixAttributeUpdates) {
     //here matrixattributeupdates is optional. we might not need them if we have a fixed projection matrix
     this.switchToShader();
 
     //update the right matrices
-    if(matrixAttributeUpdates)
-    {
+    if (matrixAttributeUpdates) {
         //this will replace them in JS memory and also update them on the gpu
         this.updateAttributes(matrixAttributeUpdates);
     }
 
-    if(!this.isBall)
-    {
+    if (!this.isBall) {
         //bind the buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER,gridVertexPositionBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
         gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.drawArrays(gl.TRIANGLES, 0, gridVertexPositionBuffer.numItems);
-    }
-    else
-    {
+    } else {
         //bind both position and color
-        gl.bindBuffer(gl.ARRAY_BUFFER,ballVertexPositionBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, ballVertexPositionBuffer);
         gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, ballVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER,ballVertexColorBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, ballVertexColorBuffer);
         gl.vertexAttribPointer(this.shaderProgram.vertexColorAttribute, ballVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ballVertexIndexBuffer);
@@ -1458,16 +1454,14 @@ myShader.prototype.drawGrid = function(matrixAttributeUpdates) {
     }
 };
 
-myShader.prototype.switchToShader = function() {
+myShader.prototype.switchToShader = function () {
     gl.useProgram(this.shaderProgram);
 };
 
-myShader.prototype.updateAttributes = function(attributes) {
-    for(key in attributes)
-    {
+myShader.prototype.updateAttributes = function (attributes) {
+    for (key in attributes) {
         var varName = key;
-        if(!this.uniformAttributes[varName])
-        {
+        if (!this.uniformAttributes[varName]) {
             console.warn("Warning!! this attribute", varName, " has not been built yet, build it first!");
             continue;
         }
@@ -1478,15 +1472,15 @@ myShader.prototype.updateAttributes = function(attributes) {
     this.bufferUniforms();
 };
 
-myShader.prototype.updateTime = function(timeVal) {
+myShader.prototype.updateTime = function (timeVal) {
     this.switchToShader();
 
     this.uniformAttributes['time'].val = timeVal;
 
-    gl.uniform1f(this.shaderProgram.timelocation,timeVal); 
+    gl.uniform1f(this.shaderProgram.timelocation, timeVal);
 };
 
-myShader.prototype.bufferUniforms = function() {
+myShader.prototype.bufferUniforms = function () {
     //uses my set of uniform attributes. essentially this means that i can have my own set of 
     //a perspective matrix, a move matrix, and several other things without requiring a lot of switching between everything.
     //
@@ -1495,26 +1489,19 @@ myShader.prototype.bufferUniforms = function() {
     //so because you are specifying unique locations for each variable on the shader program, but this requires investigation...
     //
     //
-
-    for(key in this.uniformAttributes)
-    {
+    for (key in this.uniformAttributes) {
         var varName = key;
 
         var val = this.uniformAttributes[key].val;
         var type = this.uniformAttributes[key].type;
         var varLocation = varName + "location";
 
-        if(type == 'f')
-        {
-            gl.uniform1f(this.shaderProgram[varLocation],val);
-        }
-        else if(type == '4fm')
-        {
-            gl.uniformMatrix4fv(this.shaderProgram[varLocation],false,val);
-        }
-        else
-        {
-            console.warn("unsupported type ",type);
+        if (type == 'f') {
+            gl.uniform1f(this.shaderProgram[varLocation], val);
+        } else if (type == '4fm') {
+            gl.uniformMatrix4fv(this.shaderProgram[varLocation], false, val);
+        } else {
+            console.warn("unsupported type ", type);
         }
     }
 };
@@ -1534,32 +1521,73 @@ myShader.prototype.bufferUniforms = function() {
 
 
 //global colors
-
 function initShaders() {
 
     //box shadeer
     var attributes = {
-        'time':{type:'f',val:0},
-        'minX':{type:'f',val:0},
-        'maxX':{type:'f',val:0},
-        'maxY':{type:'f',val:0},
-        'minY':{type:'f',val:0},
-        'minZ':{type:'f',val:0},
-        'maxZ':{type:'f',val:0},
-        'pMatrix':{type:'4fm',val:pMatrix},
-        'mvMatrix':{type:'4fm',val:mvMatrix},
+        'time': {
+            type: 'f',
+            val: 0
+        },
+        'minX': {
+            type: 'f',
+            val: 0
+        },
+        'maxX': {
+            type: 'f',
+            val: 0
+        },
+        'maxY': {
+            type: 'f',
+            val: 0
+        },
+        'minY': {
+            type: 'f',
+            val: 0
+        },
+        'minZ': {
+            type: 'f',
+            val: 0
+        },
+        'maxZ': {
+            type: 'f',
+            val: 0
+        },
+        'pMatrix': {
+            type: '4fm',
+            val: pMatrix
+        },
+        'mvMatrix': {
+            type: '4fm',
+            val: mvMatrix
+        },
     };
 
     var ballAttributes = {
-        'pMatrix':{type:'4fm',val:pMatrix},
-        'mvMatrix':{type:'4fm',val:mvMatrix},
-        'xPos':{type:'f',val:0},
-        'yPos':{type:'f',val:0},
-        'zPos':{type:'f',val:0},
+        'pMatrix': {
+            type: '4fm',
+            val: pMatrix
+        },
+        'mvMatrix': {
+            type: '4fm',
+            val: mvMatrix
+        },
+        'xPos': {
+            type: 'f',
+            val: 0
+        },
+        'yPos': {
+            type: 'f',
+            val: 0
+        },
+        'zPos': {
+            type: 'f',
+            val: 0
+        },
     };
 
-    blendShaderObj = new myShader($j("#shader-box-vs"),$j("#shader-box-fs"),attributes,false);
-    ballShaderObj = new myShader($j("#shader-simple-vs"),$j("#shader-simple-fs"),ballAttributes,true);
+    blendShaderObj = new myShader($j("#shader-box-vs"), $j("#shader-box-fs"), attributes, false);
+    ballShaderObj = new myShader($j("#shader-simple-vs"), $j("#shader-simple-fs"), ballAttributes, true);
 }
 
 var otherFramebuffer;
@@ -1567,7 +1595,7 @@ var otherFramebuffer;
 function initOtherFrameBuffer() {
     //make frame buffer
     otherFramebuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER,otherFramebuffer);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, otherFramebuffer);
     otherFramebuffer.width = $j(window).width();
     otherFramebuffer.height = $j(window).height();
 
@@ -1575,7 +1603,6 @@ function initOtherFrameBuffer() {
     //var renderbuffer = gl.createRenderbuffer();
     //gl.bindRenderbuffer(gl.RENDERBUFFER,renderbuffer);
     //gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, otherFramebuffer.width, otherFramebuffer.height);
-
     //reset back to default
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1618,22 +1645,23 @@ function initGridBuffers() {
     //initialize the grid vertices
     var gridVertexPositions = [];
 
-    var addPointsToBuffer = function() {
-        for(var temp = 0; temp < arguments.length; temp++)
-        {
-            point = arguments[temp];
-            //omit adding z coordinate, its not needed
-            //gridVertexPositions.push(point.x, point.y, 0);
-            gridVertexPositions.push(point.x, point.y);
-        }
-    };
+    var addPointsToBuffer = function () {
+            for (var temp = 0; temp < arguments.length; temp++) {
+                point = arguments[temp];
+                //omit adding z coordinate, its not needed
+                //gridVertexPositions.push(point.x, point.y, 0);
+                gridVertexPositions.push(point.x, point.y);
+            }
+        };
 
-    var makePoint = function(x,y) {
-        return {'x':x,'y':y};
-    };
+    var makePoint = function (x, y) {
+            return {
+                'x': x,
+                'y': y
+            };
+        };
 
     //numRows = someValue (global now)
-
     var xMinBoard = -1;
     var xMaxBoard = 1;
     var yMinBoard = -1;
@@ -1643,46 +1671,41 @@ function initGridBuffers() {
     var yDivisor = (yMaxBoard - yMinBoard) / (numRows - 1);
 
     //the x loop
-    for(var i = 0; i < numRows; i++)
-    {
+    for (var i = 0; i < numRows; i++) {
         //the y loop
-        for(var j = 0; j < numRows; j++)
-        {
+        for (var j = 0; j < numRows; j++) {
             var xHere = i * xDivisor + xMinBoard;
             var yHere = j * yDivisor + yMinBoard;
 
             var xAcross = (i + 1) * xDivisor + xMinBoard;
             var yAcross = (j + 1) * yDivisor + yMinBoard;
 
-            var pHere = makePoint(xHere,yHere);
-            var pAbove = makePoint(xHere,yAcross);
-            var pRight = makePoint(xAcross,yHere);
-            var pDiagonal = makePoint(xAcross,yAcross);
+            var pHere = makePoint(xHere, yHere);
+            var pAbove = makePoint(xHere, yAcross);
+            var pRight = makePoint(xAcross, yHere);
+            var pDiagonal = makePoint(xAcross, yAcross);
 
-            addPointsToBuffer(pHere,pDiagonal,pAbove);
-            addPointsToBuffer(pHere,pRight,pDiagonal);
+            addPointsToBuffer(pHere, pDiagonal, pAbove);
+            addPointsToBuffer(pHere, pRight, pDiagonal);
         }
     }
 
     //gridVertexPositions = [1,1,0,-1,-1,0,-1,1,0];
-
     gridVertexPositionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gridVertexPositions), gl.STATIC_DRAW);
 
     //we don't need the z coordinate here, so omit it from the array
-
     gridVertexPositionBuffer.itemSize = 2;
     gridVertexPositionBuffer.numItems = gridVertexPositions.length / gridVertexPositionBuffer.itemSize;
 
-    
+
     //do the ball too
     initBallBuffers();
 }
 
 function initBallBuffers() {
     //generate the points to draw
-
     var latitudeBands = 10;
     var longitudeBands = 10;
     var radius = 0.2;
@@ -1690,35 +1713,35 @@ function initBallBuffers() {
     var ballVertexPositions = [];
     var ballVertexColors = [];
 
-    for (var latNumber=0; latNumber <= latitudeBands; latNumber++) {
+    for (var latNumber = 0; latNumber <= latitudeBands; latNumber++) {
         var theta = latNumber * Math.PI / latitudeBands;
         var sinTheta = Math.sin(theta);
         var cosTheta = Math.cos(theta);
 
-        for (var longNumber=0; longNumber <= longitudeBands; longNumber++) {
-                var phi = longNumber * 2 * Math.PI / longitudeBands;
-                var sinPhi = Math.sin(phi);
-                var cosPhi = Math.cos(phi);
+        for (var longNumber = 0; longNumber <= longitudeBands; longNumber++) {
+            var phi = longNumber * 2 * Math.PI / longitudeBands;
+            var sinPhi = Math.sin(phi);
+            var cosPhi = Math.cos(phi);
 
-                var x = cosPhi * sinTheta;
-                var y = cosTheta;
-                var z = sinPhi * sinTheta;
+            var x = cosPhi * sinTheta;
+            var y = cosTheta;
+            var z = sinPhi * sinTheta;
 
-                ballVertexPositions.push(radius * x);
-                ballVertexPositions.push(radius * y);
-                ballVertexPositions.push(radius * z);
+            ballVertexPositions.push(radius * x);
+            ballVertexPositions.push(radius * y);
+            ballVertexPositions.push(radius * z);
 
-                //push colors
-                ballVertexColors.push(0);
-                ballVertexColors.push(x*0.5 + 0.5);
-                ballVertexColors.push(z*0.5 + 0.5);
-                ballVertexColors.push(0.9);
+            //push colors
+            ballVertexColors.push(0);
+            ballVertexColors.push(x * 0.5 + 0.5);
+            ballVertexColors.push(z * 0.5 + 0.5);
+            ballVertexColors.push(0.9);
         }
     }
 
     var indexData = [];
-    for (var latNumber=0; latNumber < latitudeBands; latNumber++) {
-        for (var longNumber=0; longNumber < longitudeBands; longNumber++) {
+    for (var latNumber = 0; latNumber < latitudeBands; latNumber++) {
+        for (var longNumber = 0; longNumber < longitudeBands; longNumber++) {
 
             var first = (latNumber * (longitudeBands + 1)) + longNumber;
             var second = first + longitudeBands + 1;
@@ -1795,12 +1818,17 @@ function getArcAtMousePos(x,y) {
 function drawScene() {
 
     cameraUpdates = {
-        'pMatrix':{type:'4fm','val':pMatrix},
-        'mvMatrix':{type:'4fm','val':mvMatrix},
+        'pMatrix': {
+            type: '4fm',
+            'val': pMatrix
+        },
+        'mvMatrix': {
+            type: '4fm',
+            'val': mvMatrix
+        },
     };
 
-    if(!window.solver)
-    {
+    if (!window.solver) {
         return;
     }
 
@@ -1810,11 +1838,26 @@ function drawScene() {
     translateAndRotate();
 
     ballUpdates = {
-        'pMatrix':{type:'4fm','val':pMatrix},
-        'mvMatrix':{type:'4fm','val':mvMatrix},
-        'xPos':{type:'f','val':pos.xOrig},
-        'yPos':{type:'f','val':pos.yOrig},
-        'zPos':{type:'f','val':pos.zOrig},
+        'pMatrix': {
+            type: '4fm',
+            'val': pMatrix
+        },
+        'mvMatrix': {
+            type: '4fm',
+            'val': mvMatrix
+        },
+        'xPos': {
+            type: 'f',
+            'val': pos.xOrig
+        },
+        'yPos': {
+            type: 'f',
+            'val': pos.yOrig
+        },
+        'zPos': {
+            type: 'f',
+            'val': pos.zOrig
+        },
     };
 
     //here, we draw the grid with our shader object
@@ -1833,12 +1876,12 @@ function cameraPerspectiveClear() {
     //we set our clearColor to be 0 0 0 0, so its essentially transparent.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.ortho(-0.0519,0.0519,-0.0414,0.0414,0.1,100.0,pMatrix);
+    mat4.ortho(-0.0519, 0.0519, -0.0414, 0.0414, 0.1, 100.0, pMatrix);
 }
 
 function buildStandardMatrices() {
 
-    mat4.ortho(-0.0519,0.0519,-0.0414,0.0414,0.1,100.0,orthogProjMatrix);
+    mat4.ortho(-0.0519, 0.0519, -0.0414, 0.0414, 0.1, 100.0, orthogProjMatrix);
 
     //standardMoveMatrix
     mat4.identity(standardMoveMatrix);
@@ -1852,13 +1895,13 @@ function buildStandardMatrices() {
     var result = vec3.create();
 
     secondRotAxis[0] = 1;
-    mat4.multiplyVec3(newRot,secondRotAxis,result);
+    mat4.multiplyVec3(newRot, secondRotAxis, result);
 
-    mat4.rotate(newRot,degToRad(-90), [result[0],result[1],result[2]]);
-    mat4.rotate(newRot,degToRad(0.0), [0,1,0]);
+    mat4.rotate(newRot, degToRad(-90), [result[0], result[1], result[2]]);
+    mat4.rotate(newRot, degToRad(0.0), [0, 1, 0]);
 
     var standardScale = 0.04;
-    mat4.scale(standardMoveMatrix,[standardScale,standardScale,standardScale]);
+    mat4.scale(standardMoveMatrix, [standardScale, standardScale, standardScale]);
 
     mat4.multiply(standardMoveMatrix, newRot);
 }
@@ -1870,12 +1913,10 @@ function translateAndRotate() {
     mat4.translate(mvMatrix, [0, 0, zoomAmount]);
 
     //cap variables
-    if(globalYrotate > 360)
-    {
+    if (globalYrotate > 360) {
         globalYrotate -= 360;
     }
-    if(globalYrotate < -360)
-    {
+    if (globalYrotate < -360) {
         globalYrotate += 360;
     }
 
@@ -1887,16 +1928,16 @@ function translateAndRotate() {
     var secondRotAxis = vec3.create();
     var result = vec3.create();
     secondRotAxis[0] = 1;
-    mat4.multiplyVec3(newRot,secondRotAxis,result);
+    mat4.multiplyVec3(newRot, secondRotAxis, result);
 
-    mat4.rotate(newRot,degToRad(globalXrotate), [result[0],result[1],result[2]]);
-    mat4.rotate(newRot,degToRad(globalYrotate), [0,1,0]);
+    mat4.rotate(newRot, degToRad(globalXrotate), [result[0], result[1], result[2]]);
+    mat4.rotate(newRot, degToRad(globalYrotate), [0, 1, 0]);
 
     //now multiply earth rotation
     mat4.identity(earthRotationMatrix);
-    mat4.multiply(earthRotationMatrix,newRot);
+    mat4.multiply(earthRotationMatrix, newRot);
 
-    mat4.scale(mvMatrix,[scaleAmount,scaleAmount,scaleAmount]);
+    mat4.scale(mvMatrix, [scaleAmount, scaleAmount, scaleAmount]);
 
     mat4.multiply(mvMatrix, earthRotationMatrix);
 }
@@ -1920,7 +1961,7 @@ function webGLStart() {
     startLoadingWithText("Initializing WebGL...");
 
     buildStandardMatrices();
-   
+
     canvas = document.getElementById("earth-canvas");
     initGL(canvas);
     initShaders();
@@ -1931,7 +1972,7 @@ function webGLStart() {
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
-    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     //do the finish down here
     stopLoadingWithText();
@@ -1941,21 +1982,23 @@ function webGLStart() {
 
 function doEarthFlyin() {
     scaleAmount = 0.0001;
-    if(ourScaleTween)
-    {
+    if (ourScaleTween) {
         ourScaleTween.stop();
     }
 
-    scaleVariablesForTween = {'scale':scaleAmount};
+    scaleVariablesForTween = {
+        'scale': scaleAmount
+    };
 
-    ourScaleTween = new TWEEN.Tween(scaleVariablesForTween).to({'scale':0.03},tweenTime*1.5).onUpdate(scaleTweenUpdate);
-    setTimeout('scaleTweenComplete()',tweenTime*0.5);
+    ourScaleTween = new TWEEN.Tween(scaleVariablesForTween).to({
+        'scale': 0.03
+    }, tweenTime * 1.5).onUpdate(scaleTweenUpdate);
+    setTimeout('scaleTweenComplete()', tweenTime * 0.5);
     ourScaleTween.easing(TWEEN.Easing.Quartic.EaseInOut);
     ourScaleTween.start();
-} 
+}
 
-function scaleTweenComplete()
-{
+function scaleTweenComplete() {
     //code here possibly
 }
 
@@ -1978,10 +2021,10 @@ function getShader(gl, id) {
         k = k.nextSibling;
     }
 
-    return compileShader(str,shaderScript.type);
+    return compileShader(str, shaderScript.type);
 }
 
-function compileShader(str,type) {
+function compileShader(str, type) {
 
     var shader;
     if (type == "x-shader/x-fragment" || type == "frag" || type == "fragment") {
@@ -2003,38 +2046,34 @@ function compileShader(str,type) {
     return shader;
 }
 
-function getPixelData(x,y,width,height)
-{
-    var pixelValues = new Uint8Array(4 * (width+1) * (height+1));
-    gl.readPixels(x,y,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixelValues);
+function getPixelData(x, y, width, height) {
+    var pixelValues = new Uint8Array(4 * (width + 1) * (height + 1));
+    gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixelValues);
 
     return pixelValues;
 }
 
-function dumpScreenShot(height,width,shaderNum)
-{
-    if(!height)
-    {
+function dumpScreenShot(height, width, shaderNum) {
+    if (!height) {
         height = gl.viewportHeight;
         width = gl.viewportWidth;
         shaderNum = 0;
     }
 
     //get the pixel data from the current framebuffer
-    var pixels = getPixelData(0,0,width,height);
+    var pixels = getPixelData(0, 0, width, height);
 
     //get or make the snapshot canvas
-    var getOrMakeCanvas = function(id) {
-        var cvs= document.getElementById(id);
-        if(!cvs)
-        {
-            cvs = document.createElement('canvas');
-            cvs.id = id;
-            document.getElementById('holder-for-screenshots').appendChild(cvs);
-            $j('#' + id).addClass('screenshotCanvas');
-        }
-        return cvs;
-    };
+    var getOrMakeCanvas = function (id) {
+            var cvs = document.getElementById(id);
+            if (!cvs) {
+                cvs = document.createElement('canvas');
+                cvs.id = id;
+                document.getElementById('holder-for-screenshots').appendChild(cvs);
+                $j('#' + id).addClass('screenshotCanvas');
+            }
+            return cvs;
+        };
     //get or make the snapshot canvas
     var cvs = getOrMakeCanvas("screenshot" + String(shaderNum));
 
@@ -2044,14 +2083,14 @@ function dumpScreenShot(height,width,shaderNum)
     var ctx2d = cvs.getContext('2d');
     var image = ctx2d.createImageData(cvs.width, cvs.height);
 
-    for (var y = 0; y < cvs.height; y++){
-        for (var x = 0; x < cvs.width; x++){
+    for (var y = 0; y < cvs.height; y++) {
+        for (var x = 0; x < cvs.width; x++) {
             var index = (y * cvs.width + x) * 4;
-            var index2 = ((cvs.height-1-y) * cvs.width + x) * 4;
+            var index2 = ((cvs.height - 1 - y) * cvs.width + x) * 4;
 
-            for(var p = 0; p < 4; p++){
-                    image.data[index2 + p] = pixels[index + p];
-                }
+            for (var p = 0; p < 4; p++) {
+                image.data[index2 + p] = pixels[index + p];
+            }
         }
     }
 
@@ -2059,8 +2098,7 @@ function dumpScreenShot(height,width,shaderNum)
     ctx2d.putImageData(image, 0, 0);
 }
 
-function colorIntToPosition(colorValue,coordMin,coordMax,numRows)
-{
+function colorIntToPosition(colorValue, coordMin, coordMax, numRows) {
     var positionInUniformGridFromMin = (colorValue / 255.0);
 
     /* OBSOLETE
@@ -2081,77 +2119,69 @@ function colorIntToPosition(colorValue,coordMin,coordMax,numRows)
     return coordPos;
 }
 
-function makeCoordToIndexConverter(height,width) {
-    var converter = function(x,y) {
-            var index = 4*(y * width + x);
+function makeCoordToIndexConverter(height, width) {
+    var converter = function (x, y) {
+            var index = 4 * (y * width + x);
             return index;
-    };
+        };
     return converter;
 }
 
-function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
+function findRGBofBottomFrameBuffer(heightOfBuffer, widthOfBuffer) {
     //default to viewport if nothing is specified
-    if(!heightOfBuffer)
-    {
+    if (!heightOfBuffer) {
         heightOfBuffer = gl.viewportHeight;
     }
-    if(!widthOfBuffer)
-    {
+    if (!widthOfBuffer) {
         widthOfBuffer = gl.viewportWidth;
     }
 
     //use a closure to simplify our conversion process
-    var converter = makeCoordToIndexConverter(heightOfBuffer,widthOfBuffer);
+    var converter = makeCoordToIndexConverter(heightOfBuffer, widthOfBuffer);
 
     //its actually faster to copy all the pixels at once and loop through that Uint8 array
-    var allPixels = getPixelData(0,0,widthOfBuffer,heightOfBuffer);
+    var allPixels = getPixelData(0, 0, widthOfBuffer, heightOfBuffer);
 
-    var anyColorPositive = function(x,y) {
-        var rIndex = converter(x,y);
-        return allPixels[rIndex] || allPixels[rIndex+1] || allPixels[rIndex+2] || allPixels[rIndex+3];
-    };
+    var anyColorPositive = function (x, y) {
+            var rIndex = converter(x, y);
+            return allPixels[rIndex] || allPixels[rIndex + 1] || allPixels[rIndex + 2] || allPixels[rIndex + 3];
+        };
 
     //scan from the bottom to the top on the current frame buffer, and return once we find something thats
     //nonzero. Make sure to take the middle of the row that has an optimum
-    for(var y = 0; y < heightOfBuffer; y++)
-    {
-        for(var x = 0; x < widthOfBuffer; x++)
-        {
-            if(anyColorPositive(x,y))
-            {
+    for (var y = 0; y < heightOfBuffer; y++) {
+        for (var x = 0; x < widthOfBuffer; x++) {
+            if (anyColorPositive(x, y)) {
                 //here we need to loop forward while the row still has positive colors just so we can get the middle
                 var xLeft = x;
                 var xRight = x + 1;
                 //move right while there are still positive colors
-                while(xRight < widthOfBuffer && anyColorPositive(xRight,y))
-                {
+                while (xRight < widthOfBuffer && anyColorPositive(xRight, y)) {
                     xRight++;
                 }
                 xRight--; //subtract one because we broke the loop condition
-
                 //now get the "middle." We use floor because sometimes we overshoot
-                var xMiddle = Math.round(xRight*0.5 + xLeft*0.5);
+                var xMiddle = Math.round(xRight * 0.5 + xLeft * 0.5);
 
-                var rIndex = converter(xMiddle,y);
+                var rIndex = converter(xMiddle, y);
 
-                if(!anyColorPositive(xMiddle,y))
-                {
+                if (!anyColorPositive(xMiddle, y)) {
                     console.warn("warning! got an empty pixel after rounding and searching");
                 }
-                
+
                 var r = allPixels[rIndex];
-                var g = allPixels[rIndex+1];
-                var b = allPixels[rIndex+1];
+                var g = allPixels[rIndex + 1];
+                var b = allPixels[rIndex + 1];
 
                 //return these optimums and the location where we found z
                 var yHeight01 = (y / heightOfBuffer);
                 return {
-                    'r':r,
-                    'g':g,
-                    'b':b,
-                    'yHeight':yHeight01,
-                    'row':y,
-                    'col':xMiddle
+                    'r': r,
+                    'g': g,
+                    'b': b,
+                    'yHeight': yHeight01,
+                    'row': y,
+                    'col': xMiddle
                 };
             }
         }
@@ -2159,7 +2189,13 @@ function findRGBofBottomFrameBuffer(heightOfBuffer,widthOfBuffer) {
 
     //this line should never execute unless we are on a completely empty framebuffer
     //console.warn("found nothing on frame buffer!");
-    return {'r':0,'g':0,'b':0,'noneFound':true,'yHeight':0.5};
+    return {
+        'r': 0,
+        'g': 0,
+        'b': 0,
+        'noneFound': true,
+        'yHeight': 0.5
+    };
 };
-var minXpixel; var minYpixel;
-
+var minXpixel;
+var minYpixel;
