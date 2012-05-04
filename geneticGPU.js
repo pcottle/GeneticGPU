@@ -1104,6 +1104,13 @@ Solver.prototype.nDSolveWrapper = function() {
 
     var results = this.easyRandomSolve();
 
+    if(!results)
+    {
+        return {'ballPos':
+                    {'xOrig':0,
+                     'yOrig':0,
+                     'zOrig':0}};
+    }
     this.handleExtendZ(results);
 
     var pos = results.minPos;

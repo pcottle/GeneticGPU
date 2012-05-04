@@ -54,7 +54,7 @@ everyone.now.changeEquation = function(roomName,equationInfo) {
     roomInfo[room] = equationInfo;
     
     nowjs.getGroup(room).now.receiveMessage("NETWORK: Changing equation to " + equationInfo.equationString);
-    nowjs.getGroup(room).now.receiveEquation(equationInfo);
+    nowjs.getGroup(room).exclude([this.user.clientId]).now.receiveEquation(equationInfo);
 };
 
 everyone.now.changeRoom = function(newRoom){
