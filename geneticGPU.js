@@ -1102,6 +1102,7 @@ Solver.prototype.nDSolveWrapper = function() {
        */
 
     this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
+    this.updateTimeOnAll();
 
     var results = this.easyRandomSolve();
 
@@ -1246,8 +1247,11 @@ Solver.prototype.updateTimeOnAll = function() {
     if(deltaT > 30)
     {
         startTime = now.getTime();
-        deltaT = 0;
+        deltaT = 0.1;
     }
+
+    //set it on our search windows?
+    this.baseSearchWindow.windowAttributes.time.val = deltaT;
 
     for(var i = 0; i < this.uniformShaders.length; i++)
     {
@@ -1261,7 +1265,7 @@ Solver.prototype.updateTimeOnAll = function() {
 
 
 Solver.prototype.easyRandomSolve = function(searchWindowAttributes) {
-    this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
+    //this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
 
     return this.executeShadersAndExtractors(searchWindowAttributes,this.randomShaders,this.randomExtractors);
 };
