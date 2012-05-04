@@ -1004,6 +1004,36 @@ var Solver = function(problem,uniformObjects,randomObjects,graphicalShader) {
     this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
 }
 
+Solver.prototype.unfixVariable = function(e) {
+    //get the id of the variable we are going to unfix
+
+    console.log('unfixing',e);
+    var varName = $j(e.srcElement).attr('id');
+
+    console.log("unfixing variable ",varName);
+
+    //get our fixedVariables, and dont add varname when copying
+
+    var newFixed = [];
+    var fixedVars = this.baseSearchWindow.fixedVars;
+    for(var i = 0; i < fixedVars.length; i++)
+    {
+        var fv = fixedVars[i];
+        if(fv != varName)
+        {
+            newFixed.push(fv);
+        }
+    }
+
+    //now we can essentially 'change our equation'
+    var eInfo = getMyEquationInfo();
+
+    eInfo.fixedVars = newFixed;
+
+    changeOurEquation(eInfo);
+    changeRoomEquation(eInfo);
+};
+
 Solver.prototype.createFrameBuffer = function() {
 
     //ok lets make a frame buffer for our own solving reasons
@@ -1038,12 +1068,6 @@ Solver.prototype.createFrameBuffer = function() {
     gl.bindTexture(gl.TEXTURE_2D,null);
     gl.bindRenderbuffer(gl.RENDERBUFER, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
-};
-
-Solver.prototype.unfixVariable = function(e) {
-    //make a new problem without this variable as a fixed variable and then
-    //overwrite the global variable
-    console.log(e);
 };
 
 Solver.prototype.graphicalDraw = function(cameraUpdates) {

@@ -2,8 +2,6 @@ function joinRoom(roomName) {
     //join the room via node
     now.changeRoom(roomName);
 
-    //TODO: update equation here
-
 }
 
 function getMyEquationInfo() {
