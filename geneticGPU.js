@@ -210,8 +210,8 @@ SearchWindow.prototype.makeZoomWindow = function (centerPosition, percent) {
         if (type != '4fm') //don't copy the matrices
         {
             copy.windowAttributes[key] = {
-                'type': type,
-                'val': this.windowAttributes[key].val
+                'type': String(type),
+                'val': Number(this.windowAttributes[key].val)
             };
         }
     }
@@ -342,6 +342,11 @@ var Problem = function (equationString, userSpecifiedFixedVariables, fixAllBut2)
 
         console.log("all variables", allVariables);
         console.log("results: fixed", fixedVariables, " sample", sampleVariables);
+
+        if(this.wantsTime && sampleVariables.length > 2)
+        {
+            throw new Error("Sorry! You can't do N-D search with time as a driving factor. Try the static examples");
+        }
 
         //go build a window for these variables.
         //z is included as a sample variable because it has bounds that need to be updated as the function scales
@@ -631,6 +636,10 @@ ShaderTemplateRenderer.prototype.buildExtractorForVariables = function (varsToEx
     }
 
     var extractor = function (colors, searchWindow) {
+            if(!searchWindow[maxR])
+            {
+                console.log("trying to get this r value", maxR,"from thsi window",searchWindow);
+            }
             var rRange = searchWindow[maxR].val - searchWindow[minR].val;
             var rPos = (colors.r / 255.0) * rRange + searchWindow[minR].val;
 
@@ -1094,7 +1103,7 @@ Solver.prototype.nDSolveWrapper = function () {
     /* heres the deal. we kinda want to randomly n-d solve to get an
        investigation point, and then uniformly "zoom" on that investigation point
        to investigate and get a minimum. so it goes:
-            nD random -> nD uniform zoom
+            nD random -> 2d uniform for extra accuracy.
        */
 
     this.setWindowOnShaders(this.randomShaders, this.baseSearchWindow);
@@ -1111,9 +1120,27 @@ Solver.prototype.nDSolveWrapper = function () {
             }
         };
     }
+
     this.handleExtendZ(results);
 
     var pos = results.minPos;
+
+
+    //make an N-D zoom window for better accuracy / to breed this solution
+    zoomedNDwindow = this.baseSearchWindow.makeZoomWindow(pos,0.15);
+    this.bufferWindowOnShaders(this.randomShaders,zoomedNDwindow);
+
+    this.updateTimeOnAll();
+
+    results = this.easyRandomSolve(zoomedNDwindow.windowAttributes,7);
+    pos = results.minPos;
+
+    if(!asd)
+    {
+        console.log("entire window",this.baseSearchWindow,"and zoomed window",zoomedNDwindow);
+        asd = true;
+    }
+    /****** This is just drawing the graphical shader at our best guess so far **********/
 
     //first post the results so we can get the min
     this.minSaver.postHostResults(pos);
@@ -1126,9 +1153,7 @@ Solver.prototype.nDSolveWrapper = function () {
     this.searchWindow2d.updateBoundsOnZ(this.baseSearchWindow);
     this.setWindowOnShaders([this.graphicalShader],this.searchWindow2d);
 
-    //the draw happens outside this loop
-
-    //TODO -> zoom window and ND uniform zoom
+    //the draw happens outside this loop, so no explicit call here
 
     //here we give it the current "best" we have found rather than this frame
     //because it's ND
@@ -1139,6 +1164,7 @@ Solver.prototype.nDSolveWrapper = function () {
         'minFound': pos
     };
 };
+
 
 Solver.prototype.handleExtendZ = function (results) {
 
@@ -1243,6 +1269,14 @@ Solver.prototype.setWindowOnShaders = function (shaders, searchWindow) {
     }
 };
 
+Solver.prototype.bufferWindowOnShaders = function (shaders, searchWindow) {
+    for (var i = 0; i < shaders.length; i++) {
+        shaders[i].bufferAttributes(searchWindow.windowAttributes);
+    }
+};
+
+
+
 Solver.prototype.updateTimeOnAll = function () {
 
     //if the problem wants time in order to drive the simulation, 
@@ -1269,9 +1303,9 @@ Solver.prototype.updateTimeOnAll = function () {
 };
 
 
-Solver.prototype.easyRandomSolve = function (searchWindowAttributes) {
+Solver.prototype.easyRandomSolve = function (searchWindowAttributes,offSet) {
     //this.setWindowOnShaders(this.randomShaders,this.baseSearchWindow);
-    return this.executeShadersAndExtractors(searchWindowAttributes, this.randomShaders, this.randomExtractors);
+    return this.executeShadersAndExtractors(searchWindowAttributes, this.randomShaders, this.randomExtractors, offSet);
 };
 
 Solver.prototype.easyUniformSolve = function (searchWindowAttributes) {
@@ -1279,9 +1313,12 @@ Solver.prototype.easyUniformSolve = function (searchWindowAttributes) {
 };
 
 
-Solver.prototype.executeShadersAndExtractors = function (searchWindowAttributes, whichShaders, whichExtractors) {
+Solver.prototype.executeShadersAndExtractors = function (searchWindowAttributes, whichShaders, whichExtractors, offSet) {
+    if(!offSet)
+    {
+        offSet = 0;
+    }
 
-    var offSet = 0; //an offset for the screenshots
     //switch to the frame buffer that's hidden! so we can do our drawing for solving here
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer);
     gl.viewport(0, 0, this.frameBuffer.width, this.frameBuffer.height);
@@ -1481,6 +1518,11 @@ myShader.prototype.updateTime = function (timeVal) {
 };
 
 myShader.prototype.bufferUniforms = function () {
+
+    this.bufferAttributes(this.uniformAttributes);
+};
+
+myShader.prototype.bufferAttributes = function(attributes) {
     //uses my set of uniform attributes. essentially this means that i can have my own set of 
     //a perspective matrix, a move matrix, and several other things without requiring a lot of switching between everything.
     //
@@ -1489,11 +1531,11 @@ myShader.prototype.bufferUniforms = function () {
     //so because you are specifying unique locations for each variable on the shader program, but this requires investigation...
     //
     //
-    for (key in this.uniformAttributes) {
+    for (key in attributes) {
         var varName = key;
 
-        var val = this.uniformAttributes[key].val;
-        var type = this.uniformAttributes[key].type;
+        var val = attributes[key].val;
+        var type = attributes[key].type;
         var varLocation = varName + "location";
 
         if (type == 'f') {

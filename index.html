@@ -491,6 +491,7 @@ frobController.prototype.frobMouseMove = function(e) {
 
     //now go set this
     prob.baseSearchWindow.windowAttributes[this.idToChange].val = newVal;
+    prob.searchWindow2d.windowAttributes[this.idToChange].val = newVal;
     //we need to update the extractors as well
 
     $j(this.srcElement).html(String(newVal).substring(0,5));
@@ -620,7 +621,7 @@ function changeOurEquation(equationInfo) {
         newTemplate = new ShaderTemplateRenderer(newProb);
         newSolver = newTemplate.solver;
     } catch(e) {
-        topNotify("weird! new problem failed:" + String(e));
+        topNotify(String(e));
         return null;
     }
 
@@ -631,6 +632,7 @@ function changeOurEquation(equationInfo) {
     if(now.total)
     {
         solver.baseSearchWindow.divideUpSearchSpace(now.position,now.total);
+        solver.searchWindow2d.divideUpSearchSpace(now.position,now.total);
     }
     else
     {
@@ -901,9 +903,13 @@ $j(document).ready(function(){
                 <option value="z = 2.0 * cos(t*time + x + y) * (0.5 + (sin(x*x + y*x + t*time) - 0.5)/(1.0 + 0.1*(x * x + y * y + cos(v*time)))) + g * 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0));">Vanilla</option>
              <option value="z = 2.0 * cos(x + y) * (0.5 + (sin(x*x + y*x) - 0.5)/(1.0 + 0.1*(x * x + y * y ))) + g * 1.25 * (pow(xOriginal,2.0) + pow(yOriginal,2.0));">Vanilla (Static)</option>
                 <option value="z = a*sin(5.5*x - t*time)*cos(5.0*y + t*time)+b*0.5*x*x+ c*abs(y) - 1.0">Wavy</option>
+                <option value="z = a*sin(5.5*x)*cos(5.0*y)+b*0.5*x*x+ c*abs(y) - 1.0">Wavy (Static)</option>
                 <option value="z = a*sin(pow(x,2.0) + pow(y,2.0) + t*time) / (abs(x*y) + 1.0) + c*0.65 * (x*x/9.0 + y*y/9.0)">Fun one</option>
+                <option value="z = a*sin(pow(x,2.0) + pow(y,2.0)) / (abs(x*y) + 1.0) + c*0.65 * (x*x/9.0 + y*y/9.0)">Fun one (Static)</option>
                 <option value="z = 0.0 - a*0.5*sin(x*y + t*time*0.7) + b*(cos(v*time*0.3) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + c*0.5*cos(x * y * 3.0 + t*time * 1.0) + x*0.1 + d*(pow(x/3.0,2.0) + pow(y/3.0,2.0))">Mini Boss</option>
+                <option value="z = 0.0 - a*0.5*sin(x*y) + b*(cos(0.3) * pow(x/3.0,2.0) + pow(y/3.0,2.0)) + c*0.5*cos(x * y * 3.0) + x*0.1 + d*(pow(x/3.0,2.0) + pow(y/3.0,2.0))">Mini Boss (Static)</option>
                 <option value="z = a*1.0*sin(pow(x,3.0) + pow(y,3.0) + t*time*0.5) / (abs(x*y) + 2.0) + b*1.65 * (x*x/9.0 + y*y/9.0)">Lasagna</option>
+                <option value="z = a*1.0*sin(pow(x,3.0) + pow(y,3.0)) / (abs(x*y) + 2.0) + b*1.65 * (x*x/9.0 + y*y/9.0)">Lasagna (Static)</option>
             </select>
 
         

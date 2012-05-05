@@ -46,6 +46,7 @@ everyone.now.makeRoom = function (newRoom, equationInfo) {
 
 everyone.now.clearAllRooms = function () {
     roomInfo = {};
+    this.now.receiveMessage("you have cleared all rooms");
 };
 
 everyone.now.changeEquation = function (roomName, equationInfo) {
