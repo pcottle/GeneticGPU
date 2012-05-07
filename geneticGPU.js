@@ -930,6 +930,22 @@ MinimumSaver.prototype.updateDom = function (elem, pos, time) {
     $j(elem).html(domHtml);
 };
 
+MinimumSaver.prototype.validateNetworkMin = function(min) {
+    var sampleVars = this.problem.baseSearchWindow.sampleVars.concat(['z']);
+
+    //all of the sample vars for the current problem have to be here
+    for(var i = 0; i < sampleVars.length; i++)
+    {
+        var name = sampleVars[i];
+        if(min[name] === undefined)
+        {
+            return false;
+        }
+    }
+
+    return true;
+};
+
 MinimumSaver.prototype.postHostResults = function (newMinPos) {
     if (!this.active) {
         return;
@@ -951,7 +967,7 @@ MinimumSaver.prototype.postHostResults = function (newMinPos) {
     this.updateDom(this.minHostElem, this.minHostPos);
 
     //set a timer to tell the network
-    if (trulyBetter && !this.broadcastTimer) {
+    if ((trulyBetter || this.minNetworkPos == null) && !this.broadcastTimer) {
         var _this = this;
         this.broadcastTimer = setTimeout(function () {
             _this.broadcastMin();
@@ -971,6 +987,15 @@ MinimumSaver.prototype.receiveNetworkMin = function (networkMin) {
     if (!this.active) {
         return;
     }
+
+    //first check that its from the same problem...
+    if(!this.validateNetworkMin(networkMin))
+    {
+        return;
+    }
+
+    //obviously dont update if its worse than ours, the other guy
+    //might have a crappy search window
     if (!this.isBetter(networkMin, this.minNetworkPos)) {
         return;
     }
@@ -1223,17 +1248,11 @@ Solver.prototype.easy2dSolveWrapper = function () {
     if (!asd) //debug
     {
         console.log("zoompos", zoomPos, " and pos", pos);
-        console.log("zoom window", zoomWindow, 'normal window', this.baseSearchWindow);
+        console.log("and converting ball pos",this.convertBallPosition(zoomPos));
         asd = true;
     }
 
-    //now go ahead and update the original "pos" result with the more accurate results,
-    //both for the x and y but also reconstructing the xOrig and yOrig
-    pos.x = zoomPos.x;
-    pos.y = zoomPos.y;
-    pos.z = zoomPos.z;
-
-    var ballPos = this.convertBallPosition(pos);
+    var ballPos = this.convertBallPosition(zoomPos);
 
     //reset our search window
     this.setWindowOnShaders(this.uniformShaders, this.problem.baseSearchWindow);
