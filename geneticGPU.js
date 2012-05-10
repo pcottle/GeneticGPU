@@ -583,11 +583,12 @@ ShaderTemplateRenderer.prototype.buildShaders = function (varsToSolve, type) {
 
     var myShaders = [];
     var myExtractors = [];
+    var numPerShader = 3;
 
     while (varsToSolve.length > 0) {
         //for now we do one variable per shader
         //OPTION for variables per shader
-        var varsToExtract = varsToSolve.splice(0, 3);
+        var varsToExtract = varsToSolve.splice(0, numPerShader);
 
         console.log("building shader for these vars");
         console.log(varsToExtract);
@@ -1073,8 +1074,8 @@ Solver.prototype.createFrameBuffer = function () {
     //ok lets make a frame buffer for our own solving reasons
     this.frameBuffer = gl.createFramebuffer();
     //default frame buffer sizes (framebuffer sizes)
-    this.frameBuffer.width = 200;
-    this.frameBuffer.height = 200;
+    this.frameBuffer.width = 150;
+    this.frameBuffer.height = 150;
 
     this.texture = gl.createTexture();
     this.renderBuffer = gl.createRenderbuffer();
@@ -1112,11 +1113,19 @@ Solver.prototype.solvePass = function () {
 
     var numSampleVars = this.problem.baseSearchWindow.sampleVars.length;
 
+    var asd = new Date();
+    var timeNow = asd.getTime();
     //first, dispatch to the appropriate N-d wrappers
     if (numSampleVars == 2) {
         results = this.easy2dSolveWrapper();
     } else if (numSampleVars > 2) {
         results = this.nDSolveWrapper();
+    }
+    asd = new Date();
+    if(window.dsa)
+    {
+        console.log(asd.getTime() - timeNow);
+        dsa = false;
     }
 
     this.minSaver.postHostResults(results.minFound);
