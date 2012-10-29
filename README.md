@@ -12,11 +12,11 @@ Uniform sampling of a 2D surface for optimization is not a new idea; Genetic GPU
 
 In order to optimize this type of function, Genetic GPU randomly distributes a 2D grid of samples into the N-dimensional search space. It then evaluates the fitness of each sample according to the user-inputted function and then projects these samples onto the screen buffer for collection (with the vertical height being the fitness).
 
-With this projection, post-processing can easily extract out the lowest point (sample with best fitness). The tricky thing is that because of this N-D to 2D projection, the actual location of the sample is lost. Genetic GPU overcomes this obstacle by encoding the position of the sample into the RGB color space of the output buffer.
+With this projection, post-processing can easily extract out the lowest point (sample with best fitness, denoted as a white square on the shader views). The tricky thing is that because of this N-D to 2D projection, the actual location of the sample is lost. Genetic GPU overcomes this obstacle by encoding the position of the sample into the RGB color space of the output buffer.
 
 Since only 3 variables can be encoded at once into the RGB data, Genetic GPU will compile as many shader programs as necessary to extract out all the variables (aka 2 shader programs for 5 variables, 3 shader programs for 7).
 
-After the best sample's position is extracted from the screen buffer, Genetic GPU then 'mutates' this sample in N-dimensions with a pre-defined accuracy and resamples. This improves accuracy and is the main reason why it is similar to genetic algorithms.
+After the best sample's position is extracted from the screen buffer, Genetic GPU then 'mutates' this sample in N-dimensions with a pre-defined accuracy and resamples. This improves accuracy and is the namesake of the algorithm.
 
 ## Project Writeup
 
