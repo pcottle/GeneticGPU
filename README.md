@@ -4,6 +4,8 @@ Genetic GPU is a non-convex optimization algorithm that uses WebGL to optimize u
 
 [<img src="http://petercottle.com/gpu1.PNG">]
 
+[<img src="http://petercottle.com/gpu2.PNG">]
+
 ## Project Writeup
 
 A detailed writeup of the algorithm (compiled for ME202 at UC Berkeley) is available [here](http://petercottle.com/GGPUwriteup.pdf).
