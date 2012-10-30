@@ -34,7 +34,6 @@ nowjs.on('disconnect', function () {
 
 
 roomInfo = {};
-
 everyone.now.makeRoom = function (newRoom, equationInfo) {
 
     //we need to initialize some things about roomInnfo
