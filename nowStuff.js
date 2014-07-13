@@ -47,7 +47,7 @@ function changeRoomEquation(equationInfo) {
 
 function doNodeStuff() {
     if (!window.now) {
-        alert("no now.js detected, entering no-network mode");
+        console.log("no now.js detected, entering no-network mode");
     }
 
     now.ready(function () {
